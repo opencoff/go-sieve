@@ -1,35 +1,18 @@
 // sieve_test.go - test harness for sieve cache
 
-
-package sieve
+package sieve_test
 
 import (
 	"fmt"
 	"testing"
-	"runtime"
+
+	"github.com/opencoff/go-sieve"
 )
- 
-func newAsserter(t *testing.T) func(cond bool, msg string, args ...interface{}) {
-	return func(cond bool, msg string, args ...interface{}) {
-		if cond {
-			return
-		}
-
-		_, file, line, ok := runtime.Caller(1)
-		if !ok {
-			file = "???"
-			line = 0
-		}
-
-		s := fmt.Sprintf(msg, args...)
-		t.Fatalf("%s: %d: assertion failed: %s\n", file, line, s)
-	}
-}
 
 func TestBasic(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := NewSieveCache[int, string](4)
+	s := sieve.New[int, string](4)
 	ok := s.Add(1, "hello")
 	assert(!ok, "empty cache: expected clean add of 1")
 
@@ -49,4 +32,29 @@ func TestBasic(t *testing.T) {
 	_, ok = s.Get(2)
 	assert(!ok, "evict: expected 2 to be evicted")
 
+}
+
+func TestEvictAll(t *testing.T) {
+	assert := newAsserter(t)
+
+	size := 128
+	s := sieve.New[int, string](size)
+
+	for i := 0; i < size*2; i++ {
+		val := fmt.Sprintf("val %d", i)
+		_, ok := s.Probe(i, val)
+		assert(!ok, "%d: exp new add", i)
+	}
+
+	// the first half should've been all evicted
+	for i := 0; i < size; i++ {
+		_, ok := s.Get(i)
+		assert(!ok, "%d: exp to be evicted", i)
+	}
+
+	// leaving the second half intact
+	for i := size; i < size*2; i++ {
+		ok := s.Delete(i)
+		assert(ok, "%d: exp del on existing cache elem")
+	}
 }
