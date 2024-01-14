@@ -1,7 +1,16 @@
 // sieve.go - SIEVE - a simple and efficient cache
 //
+// (c) 2024 Sudhi Herle <sudhi@herle.net>
+//
 // Copyright 2024- Sudhi Herle <sw-at-herle-dot-net>
 // License: BSD-2-Clause
+//
+// If you need a commercial license for this work, please contact
+// the author.
+//
+// This software does not come with any express or implied
+// warranty; it is provided "as is". No claim  is made to its
+// suitability for any purpose.
 
 // This is golang implementation of the SIEVE cache eviction algorithm
 // The original paper is:
@@ -24,8 +33,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
-	"github.com/opencoff/go-objpool"
 )
 
 // node contains the <key, val> tuple as a node in a linked list.
@@ -51,7 +58,7 @@ type Sieve[K comparable, V any] struct {
 	size     int
 	capacity int
 
-	pool *objpool.Pool[node[K, V]]
+	pool *syncPool[node[K, V]]
 }
 
 // New creates a new cache of size 'capacity' mapping key 'K' to value 'V'
@@ -59,7 +66,7 @@ func New[K comparable, V any](capacity int) *Sieve[K, V] {
 	s := &Sieve[K, V]{
 		cache:    map[K]*node[K, V]{},
 		capacity: capacity,
-		pool:     objpool.New[node[K, V]](capacity),
+		pool:     newSyncPool[node[K, V]](),
 	}
 	return s
 }
@@ -138,7 +145,6 @@ func (s *Sieve[K, V]) Purge() {
 	s.head = nil
 	s.tail = nil
 	s.cache = map[K]*node[K, V]{}
-	s.pool.Reset()
 	s.mu.Unlock()
 }
 
@@ -267,7 +273,30 @@ func (s *Sieve[K, V]) newNode(key K, val V) *node[K, V] {
 
 // desc describes the properties of the sieve
 func (s *Sieve[K, V]) desc() string {
-	m := fmt.Sprintf("cache<%T>: size %d, cap %d, head=%p, tail=%p, hand=%p\n   (%s)",
-		s, s.size, s.capacity, s.head, s.tail, s.hand, s.pool.String())
+	m := fmt.Sprintf("cache<%T>: size %d, cap %d, head=%p, tail=%p, hand=%p",
+		s, s.size, s.capacity, s.head, s.tail, s.hand)
 	return m
+}
+
+// Generic sync.Pool
+type syncPool[T any] struct {
+	pool sync.Pool
+}
+
+func newSyncPool[T any]() *syncPool[T] {
+	p := &syncPool[T]{
+		pool: sync.Pool{
+			New: func() any { return new(T) },
+		},
+	}
+	return p
+}
+
+func (s *syncPool[T]) Get() *T {
+	p := s.pool.Get()
+	return p.(*T)
+}
+
+func (s *syncPool[T]) Put(n *T) {
+	s.pool.Put(n)
 }

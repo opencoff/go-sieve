@@ -1,4 +1,16 @@
 // sieve_test.go - test harness for sieve cache
+//
+// (c) 2024 Sudhi Herle <sudhi@herle.net>
+//
+// Copyright 2024- Sudhi Herle <sw-at-herle-dot-net>
+// License: BSD-2-Clause
+//
+// If you need a commercial license for this work, please contact
+// the author.
+//
+// This software does not come with any express or implied
+// warranty; it is provided "as is". No claim  is made to its
+// suitability for any purpose.
 
 package sieve_test
 
