@@ -33,13 +33,15 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // node contains the <key, val> tuple as a node in a linked list.
 type node[K comparable, V any] struct {
+	sync.Mutex
 	key     K
 	val     V
-	visited bool
+	visited atomic.Bool
 	next    *node[K, V]
 	prev    *node[K, V]
 }
@@ -51,7 +53,7 @@ type node[K comparable, V any] struct {
 // eviction of other entries - as determined by the SIEVE algorithm.
 type Sieve[K comparable, V any] struct {
 	mu       sync.Mutex
-	cache    map[K]*node[K, V]
+	cache    *syncMap[K, *node[K, V]]
 	head     *node[K, V]
 	tail     *node[K, V]
 	hand     *node[K, V]
@@ -64,7 +66,7 @@ type Sieve[K comparable, V any] struct {
 // New creates a new cache of size 'capacity' mapping key 'K' to value 'V'
 func New[K comparable, V any](capacity int) *Sieve[K, V] {
 	s := &Sieve[K, V]{
-		cache:    map[K]*node[K, V]{},
+		cache:    newSyncMap[K, *node[K, V]](),
 		capacity: capacity,
 		pool:     newSyncPool[node[K, V]](),
 	}
@@ -75,31 +77,29 @@ func New[K comparable, V any](capacity int) *Sieve[K, V] {
 // It returns true if the key is in the cache, false otherwise.
 // The zero value for 'V' is returned when key is not in the cache.
 func (s *Sieve[K, V]) Get(key K) (V, bool) {
-	s.mu.Lock()
 
-	if v, ok := s.cache[key]; ok {
-		v.visited = true
-		s.mu.Unlock()
+	if v, ok := s.cache.Get(key); ok {
+		v.visited.Store(true)
 		return v.val, true
 	}
 
-	s.mu.Unlock()
-	var v V
-	return v, false
+	var x V
+	return x, false
 }
 
 // Add adds a new element to the cache or overwrite one if it exists
 // Return true if we replaced, false otherwise
 func (s *Sieve[K, V]) Add(key K, val V) bool {
-	s.mu.Lock()
 
-	if v, ok := s.cache[key]; ok {
-		v.visited = true
+	if v, ok := s.cache.Get(key); ok {
+		v.visited.Store(true)
+		v.Lock()
 		v.val = val
-		s.mu.Unlock()
+		v.Unlock()
 		return true
 	}
 
+	s.mu.Lock()
 	s.add(key, val)
 	s.mu.Unlock()
 	return false
@@ -111,13 +111,13 @@ func (s *Sieve[K, V]) Add(key K, val V) bool {
 //	<cached-val, true> when key is present in the cache
 //	<val, false> when key is not present in the cache
 func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
-	s.mu.Lock()
 
-	if v, ok := s.cache[key]; ok {
-		v.visited = true
-		s.mu.Unlock()
+	if v, ok := s.cache.Get(key); ok {
+		v.visited.Store(true)
 		return v.val, true
 	}
+
+	s.mu.Lock()
 	s.add(key, val)
 	s.mu.Unlock()
 	return val, false
@@ -126,25 +126,23 @@ func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
 // Delete deletes the named key from the cache
 // It returns true if the item was in the cache and false otherwise
 func (s *Sieve[K, V]) Delete(key K) bool {
-	s.mu.Lock()
 
-	if v, ok := s.cache[key]; ok {
+	if v, ok := s.cache.Del(key); ok {
+		s.mu.Lock()
 		s.remove(v)
 		s.mu.Unlock()
 		return true
 	}
 
-	s.mu.Unlock()
 	return false
 }
 
 // Purge resets the cache
 func (s *Sieve[K, V]) Purge() {
 	s.mu.Lock()
-	clear(s.cache)
+	s.cache = newSyncMap[K, *node[K, V]]()
 	s.head = nil
 	s.tail = nil
-	s.cache = map[K]*node[K, V]{}
 	s.mu.Unlock()
 }
 
@@ -179,7 +177,7 @@ func (s *Sieve[K, V]) Dump() string {
 		if n == s.hand {
 			h = ">>"
 		}
-		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, n.visited, n.key, n.val))
+		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, n.visited.Load(), n.key, n.val))
 	}
 	s.mu.Unlock()
 	return b.String()
@@ -203,7 +201,7 @@ func (s *Sieve[K, V]) add(key K, val V) {
 		panic(msg)
 	}
 
-	s.cache[key] = n
+	s.cache.Put(key, n)
 
 	// insert at the head of the list
 	n.next = s.head
@@ -228,12 +226,12 @@ func (s *Sieve[K, V]) evict() {
 	}
 
 	for hand != nil {
-		if !hand.visited {
+		if !hand.visited.Load() {
 			s.remove(hand)
 			s.hand = hand.prev
 			return
 		}
-		hand.visited = false
+		hand.visited.Store(false)
 		hand = hand.prev
 		// wrap around and start again
 		if hand == nil {
@@ -244,7 +242,7 @@ func (s *Sieve[K, V]) evict() {
 }
 
 func (s *Sieve[K, V]) remove(n *node[K, V]) {
-	delete(s.cache, n.key)
+	s.cache.Del(n.key)
 	s.size -= 1
 
 	// remove node from list
@@ -266,7 +264,7 @@ func (s *Sieve[K, V]) newNode(key K, val V) *node[K, V] {
 	n := s.pool.Get()
 	n.key, n.val = key, val
 	n.next, n.prev = nil, nil
-	n.visited = false
+	n.visited.Store(false)
 
 	return n
 }
@@ -299,4 +297,38 @@ func (s *syncPool[T]) Get() *T {
 
 func (s *syncPool[T]) Put(n *T) {
 	s.pool.Put(n)
+}
+
+// generic sync.Map
+type syncMap[K comparable, V any] struct {
+	m sync.Map
+}
+
+func newSyncMap[K comparable, V any]() *syncMap[K, V] {
+	m := syncMap[K, V]{}
+	return &m
+}
+
+func (m *syncMap[K, V]) Get(key K) (V, bool) {
+	v, ok := m.m.Load(key)
+	if ok {
+		return v.(V), true
+	}
+
+	var z V
+	return z, false
+}
+
+func (m *syncMap[K, V]) Put(key K, val V) {
+	m.m.Store(key, val)
+}
+
+func (m *syncMap[K, V]) Del(key K) (V, bool) {
+	x, ok := m.m.LoadAndDelete(key)
+	if ok {
+		return x.(V), true
+	}
+
+	var z V
+	return z, false
 }
