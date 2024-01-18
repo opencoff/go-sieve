@@ -16,8 +16,6 @@ package sieve_test
 
 import (
 	"math/rand"
-	"runtime"
-	"sync"
 	"sync/atomic"
 	"testing"
 

@@ -15,9 +15,11 @@
 package sieve_test
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math/rand"
+	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -87,6 +89,8 @@ func TestAllOps(t *testing.T) {
 		s.Add(k, k)
 	}
 
+	vals = shuffle(vals)
+
 	var hit, miss int
 	for i := range vals {
 		k := vals[i]
@@ -101,98 +105,147 @@ func TestAllOps(t *testing.T) {
 	t.Logf("%d items: hit %d, miss %d, ratio %4.2f\n", len(vals), hit, miss, float64(hit)/float64(hit+miss))
 }
 
-func TestSpeed(t *testing.T) {
-	size := 8192
-	vals := randints(size * 3)
-	nvals := len(vals)
+type timing struct {
+	typ       string
+	d         time.Duration
+	hit, miss uint64
+}
 
-	s := sieve.New[uint64, uint64](size)
+type barrier atomic.Uint64
 
-	for cpu := 1; cpu <= 32; cpu *= 2 {
-		add := doFunc(cpu, func() {
-			for _, v := range vals {
-				s.Add(v, v)
-			}
-		})
-
-		nsAdd := toNs(add, nvals, cpu)
-
-		var hit, miss uint64
-		get := doFunc(cpu, func() {
-			for _, v := range vals {
-				_, ok := s.Get(v)
-				if ok {
-					atomic.AddUint64(&hit, 1)
-				} else {
-					atomic.AddUint64(&miss, 1)
-				}
-			}
-		})
-
-		nsGet := toNs(get, nvals, cpu)
-		getRatio := hitRatio(hit, miss)
-
-		del := doFunc(cpu, func() {
-			for _, v := range vals {
-				s.Delete(v)
-			}
-		})
-		nsDel := toNs(del, nvals, cpu)
-
-		s.Purge()
-
-		hit = 0
-		miss = 0
-		probe := doFunc(cpu, func() {
-			for _, v := range vals {
-				_, ok := s.Probe(v, v)
-				if ok {
-					atomic.AddUint64(&hit, 1)
-				} else {
-					atomic.AddUint64(&miss, 1)
-				}
-			}
-		})
-		nsProbe := toNs(probe, nvals, cpu)
-		probeRatio := hitRatio(hit, miss)
-
-		t.Logf(`nCPU: %d
-	add   %4.2f ns/op
-	get   %4.2f ns/op  %s
-	del   %4.2f ns/op
-	probe %4.2f ns/op  %s`,
-			cpu,
-			nsAdd,
-			nsGet, getRatio,
-			nsDel,
-			nsProbe, probeRatio)
+func (b *barrier) Wait() {
+	v := (*atomic.Uint64)(b)
+	for {
+		if v.Load() == 1 {
+			return
+		}
+		runtime.Gosched()
 	}
 }
 
-func doFunc(ncpu int, fp func()) int64 {
-	var wg sync.WaitGroup
+func (b *barrier) Signal() {
+	v := (*atomic.Uint64)(b)
+	v.Store(1)
+}
 
-	times := make([]time.Duration, ncpu)
+func TestSpeed(t *testing.T) {
+	size := 32768
+	vals := randints(size * 3)
+	//valr := shuffle(vals)
 
-	wg.Add(ncpu)
-	for j := 0; j < ncpu; j++ {
-		go func(idx int, wg *sync.WaitGroup) {
-			st := time.Now()
-			fp()
-			end := time.Now()
-			times[idx] = end.Sub(st)
-			wg.Done()
-		}(j, &wg)
+	// we will start 4 types of workers: add, get, del, probe
+	// each worker will be working on a shuffled version of
+	// the uint64 array.
+
+	for ncpu := 2; ncpu <= 32; ncpu *= 2 {
+		var wg sync.WaitGroup
+
+		wg.Add(ncpu)
+		s := sieve.New[uint64, uint64](size)
+
+		var bar barrier
+
+		// number of workers of each type
+		m := ncpu / 2
+		ch := make(chan timing, m)
+		for i := 0; i < m; i++ {
+
+			go func(ch chan timing, wg *sync.WaitGroup) {
+				var hit, miss uint64
+
+				bar.Wait()
+				st := time.Now()
+
+				// shuffled array
+				for _, x := range vals {
+					v := x % 16384
+					if _, ok := s.Get(v); ok {
+						hit++
+					} else {
+						miss++
+					}
+				}
+				d := time.Now().Sub(st)
+				ch <- timing{
+					typ:  "get",
+					d:    d,
+					hit:  hit,
+					miss: miss,
+				}
+				wg.Done()
+			}(ch, &wg)
+
+			go func(ch chan timing, wg *sync.WaitGroup) {
+				var hit, miss uint64
+				bar.Wait()
+				st := time.Now()
+				for _, x := range vals {
+					v := x % 16384
+					if _, ok := s.Probe(v, v); ok {
+						hit++
+					} else {
+						miss++
+					}
+				}
+				d := time.Now().Sub(st)
+				ch <- timing{
+					typ:  "probe",
+					d:    d,
+					hit:  hit,
+					miss: miss,
+				}
+				wg.Done()
+			}(ch, &wg)
+		}
+
+		bar.Signal()
+
+		// wait for goroutines to end and close the chan
+		go func() {
+			wg.Wait()
+			close(ch)
+		}()
+
+		// now harvest timing
+		times := map[string]timing{}
+		for tm := range ch {
+			if v, ok := times[tm.typ]; ok {
+				z := (int64(v.d) + int64(tm.d)) / 2
+				v.d = time.Duration(z)
+				v.hit = (v.hit + tm.hit) / 2
+				v.miss = (v.miss + tm.miss) / 2
+				times[tm.typ] = v
+			} else {
+				times[tm.typ] = tm
+			}
+		}
+
+		var out strings.Builder
+		fmt.Fprintf(&out, "Tot CPU %d, workers/type %d %d elems\n", ncpu, m, len(vals))
+		for _, v := range times {
+			var ratio string
+			ns := toNs(int64(v.d), len(vals), m)
+			ratio = hitRatio(v.hit, v.miss)
+			fmt.Fprintf(&out, "%6s %4.2f ns/op%s\n", v.typ, ns, ratio)
+		}
+		t.Logf(out.String())
 	}
+}
 
-	wg.Wait()
+func dup[T ~[]E, E any](v T) []E {
+	n := len(v)
+	g := make([]E, n)
+	copy(g, v)
+	return g
+}
 
-	var tot int64
-	for i := range times {
-		tm := times[i]
-		tot += int64(tm)
+func shuffle[T ~[]E, E any](v T) []E {
+	i := len(v)
+	for i--; i >= 0; i-- {
+		j := rand.Intn(i + 1)
+		v[i], v[j] = v[j], v[i]
 	}
-	return tot
+	return v
 }
 
 func toNs(tot int64, nvals, ncpu int) float64 {
@@ -201,7 +254,7 @@ func toNs(tot int64, nvals, ncpu int) float64 {
 
 func hitRatio(hit, miss uint64) string {
 	r := float64(hit) / float64(hit+miss)
-	return fmt.Sprintf("hit-ratio %4.2f (hit %d, miss %d)", r, hit, miss)
+	return fmt.Sprintf("  hit-ratio %4.2f (hit %d, miss %d)", r, hit, miss)
 }
 
 func randints(sz int) []uint64 {
@@ -215,7 +268,7 @@ func randints(sz int) []uint64 {
 			panic("can't generate rand")
 		}
 
-		v[i] = binary.BigEndian.Uint64(b[:]) % 16384
+		v[i] = binary.BigEndian.Uint64(b[:])
 	}
 	return v
 }

@@ -227,6 +227,7 @@ func (s *Sieve[K, V]) evict() {
 
 	for hand != nil {
 		if !hand.visited.Load() {
+			s.cache.Del(hand.key)
 			s.remove(hand)
 			s.hand = hand.prev
 			return
@@ -242,7 +243,6 @@ func (s *Sieve[K, V]) evict() {
 }
 
 func (s *Sieve[K, V]) remove(n *node[K, V]) {
-	s.cache.Del(n.key)
 	s.size -= 1
 
 	// remove node from list
