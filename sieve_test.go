@@ -228,7 +228,7 @@ func TestSpeed(t *testing.T) {
 			ratio = hitRatio(v.hit, v.miss)
 			fmt.Fprintf(&out, "%6s %4.2f ns/op%s\n", v.typ, ns, ratio)
 		}
-		t.Logf(out.String())
+		t.Logf("%s", out.String())
 	}
 }
 
