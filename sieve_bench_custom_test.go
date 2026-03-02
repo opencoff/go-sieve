@@ -171,6 +171,101 @@ func BenchmarkSieveGCPressure(b *testing.B) {
 	}
 }
 
+// BenchmarkEviction_LargeCache measures eviction scan time with 1M entries.
+func BenchmarkEviction_LargeCache(b *testing.B) {
+	const cacheSize = 1_000_000
+	cache := sieve.New[int, int](cacheSize)
+
+	// Fill the cache completely
+	for i := 0; i < cacheSize; i++ {
+		cache.Add(i, i)
+	}
+	// Mark ~50% as visited so eviction has to scan
+	for i := 0; i < cacheSize; i += 2 {
+		cache.Get(i)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Each Add beyond capacity triggers an eviction
+		key := cacheSize + i
+		cache.Add(key, key)
+	}
+}
+
+// BenchmarkGCPause_Comparison measures GC pause times at various cache sizes.
+func BenchmarkGCPause_Comparison(b *testing.B) {
+	for _, cacheSize := range []int{100_000, 500_000, 1_000_000} {
+		b.Run(fmt.Sprintf("Size_%d", cacheSize), func(b *testing.B) {
+			cache := sieve.New[int, int](cacheSize)
+
+			// Fill the cache
+			for i := 0; i < cacheSize; i++ {
+				cache.Add(i, i)
+			}
+
+			// Force GC, measure pause
+			runtime.GC()
+
+			var stats runtime.MemStats
+			runtime.ReadMemStats(&stats)
+
+			// Run some operations during the benchmark
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key := i % (cacheSize * 2)
+				op := i % 10
+				if op < 6 {
+					cache.Get(key)
+				} else if op < 9 {
+					cache.Add(key, key)
+				} else {
+					cache.Delete(key)
+				}
+			}
+			b.StopTimer()
+
+			// Force GC and measure
+			runtime.GC()
+			runtime.ReadMemStats(&stats)
+			b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
+			b.ReportMetric(float64(stats.HeapObjects), "heap-objects")
+		})
+	}
+}
+
+// BenchmarkMemoryOverhead measures HeapObjects and HeapAlloc at various sizes.
+func BenchmarkMemoryOverhead(b *testing.B) {
+	for _, cacheSize := range []int{100_000, 500_000, 1_000_000} {
+		b.Run(fmt.Sprintf("Size_%d", cacheSize), func(b *testing.B) {
+			runtime.GC()
+			var before runtime.MemStats
+			runtime.ReadMemStats(&before)
+
+			cache := sieve.New[int, int](cacheSize)
+			for i := 0; i < cacheSize; i++ {
+				cache.Add(i, i)
+			}
+
+			runtime.GC()
+			var after runtime.MemStats
+			runtime.ReadMemStats(&after)
+
+			b.ReportMetric(float64(after.HeapAlloc-before.HeapAlloc), "heap-bytes-delta")
+			b.ReportMetric(float64(after.HeapObjects-before.HeapObjects), "heap-objects-delta")
+
+			// Run dummy operations so the benchmark doesn't report 0 ns/op
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				cache.Get(i % cacheSize)
+			}
+
+			// Keep cache alive
+			runtime.KeepAlive(cache)
+		})
+	}
+}
+
 // runWorkload performs a consistent workload that stresses node allocation/deallocation
 func runSieveWorkload(cache *sieve.Sieve[int, int], operations int) {
 	capacity := cache.Cap()
