@@ -12,28 +12,22 @@
 // warranty; it is provided "as is". No claim  is made to its
 // suitability for any purpose.
 
-// This is golang implementation of the SIEVE cache eviction algorithm
-// The original paper is:
-//	https://yazhuozhang.com/assets/pdf/nsdi24-sieve.pdf
-//
-// This implementation closely follows the paper - but uses golang generics
-// for an ergonomic interface.
-
-// Package sieve implements the SIEVE cache eviction algorithm.
-// SIEVE stands in contrast to other eviction algorithms like LRU, 2Q, ARC
-// with its simplicity. The original paper is in:
+// Package sieve implements the SIEVE cache eviction algorithm (NSDI'24, Zhang et al.).
 // https://yazhuozhang.com/assets/pdf/nsdi24-sieve.pdf
 //
-// SIEVE is built on a FIFO queue - with an extra pointer (called "hand") in
-// the paper. This "hand" plays a crucial role in determining who to evict
-// next.
+// SIEVE uses a FIFO queue with a roving "hand" pointer. On cache hit, only a
+// visited bit is set (lazy promotion). On miss, the hand scans toward the head,
+// clearing visited bits until it finds an unvisited node to evict (quick demotion).
+//
+// This implementation is optimized for low GC overhead and high concurrency:
+// an array-backed doubly-linked list with int32 indices (no interior pointers),
+// a packed atomic bitfield for visited flags, and xsync.MapOf for lock-free reads.
 package sieve
 
 import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/puzpuzpuz/xsync/v3"
 )
@@ -43,11 +37,10 @@ const nullIdx = int32(-1)
 // node contains the <key, val> tuple as a node in a linked list.
 type node[K comparable, V any] struct {
 	sync.Mutex
-	key     K
-	val     V
-	visited atomic.Bool
-	next    int32 // index into backing array, nullIdx = null
-	prev    int32
+	key  K
+	val  V
+	next int32 // index into backing array, nullIdx = null
+	prev int32
 }
 
 // allocator manages a fixed pool of pre-allocated nodes using bump allocation
@@ -111,12 +104,13 @@ func (a *allocator[K, V]) capacity() int32 {
 // new additions to the cache beyond the capacity will cause cache
 // eviction of other entries - as determined by the SIEVE algorithm.
 type Sieve[K comparable, V any] struct {
-	mu    sync.Mutex
-	cache *xsync.MapOf[K, int32]
-	head  int32
-	tail  int32
-	hand  int32
-	size  int
+	mu      sync.Mutex
+	cache   *xsync.MapOf[K, int32]
+	head    int32
+	tail    int32
+	hand    int32
+	size    int
+	visited atomicBitfield
 
 	allocator *allocator[K, V]
 }
@@ -128,6 +122,7 @@ func New[K comparable, V any](capacity int) *Sieve[K, V] {
 		head:      nullIdx,
 		tail:      nullIdx,
 		hand:      nullIdx,
+		visited:   newAtomicBitfield(capacity),
 		allocator: newAllocator[K, V](capacity),
 	}
 	return s
@@ -138,9 +133,8 @@ func New[K comparable, V any](capacity int) *Sieve[K, V] {
 // The zero value for 'V' is returned when key is not in the cache.
 func (s *Sieve[K, V]) Get(key K) (V, bool) {
 	if idx, ok := s.cache.Load(key); ok {
-		n := &s.allocator.nodes[idx]
-		n.visited.Store(true)
-		return n.val, true
+		s.visited.Set(idx)
+		return s.allocator.nodes[idx].val, true
 	}
 
 	var x V
@@ -156,9 +150,9 @@ func (s *Sieve[K, V]) Add(key K, val V) bool {
 	if idx, ok := s.cache.Load(key); ok {
 		n := &nodes[idx]
 		n.Lock()
-		n.visited.Store(true)
 		n.val = val
 		n.Unlock()
+		s.visited.Set(idx)
 		return true
 	}
 
@@ -167,9 +161,9 @@ func (s *Sieve[K, V]) Add(key K, val V) bool {
 	if idx, ok := s.cache.Load(key); ok {
 		n := &nodes[idx]
 		n.Lock()
-		n.visited.Store(true)
 		n.val = val
 		n.Unlock()
+		s.visited.Set(idx)
 		s.mu.Unlock()
 		return true
 	}
@@ -188,18 +182,16 @@ func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
 
 	// Fast path: key exists
 	if idx, ok := s.cache.Load(key); ok {
-		n := &nodes[idx]
-		n.visited.Store(true)
-		return n.val, true
+		s.visited.Set(idx)
+		return nodes[idx].val, true
 	}
 
 	s.mu.Lock()
 	// Re-check under lock to prevent double-insert (TOCTOU fix)
 	if idx, ok := s.cache.Load(key); ok {
-		n := &nodes[idx]
-		n.visited.Store(true)
+		s.visited.Set(idx)
 		s.mu.Unlock()
-		return n.val, true
+		return nodes[idx].val, true
 	}
 	s.add(key, val)
 	s.mu.Unlock()
@@ -227,8 +219,9 @@ func (s *Sieve[K, V]) Purge() {
 	s.tail = nullIdx
 	s.hand = nullIdx
 
-	// Reset the allocator
+	// Reset the allocator and visited bits
 	s.allocator.reset()
+	s.visited.Reset()
 	s.size = 0
 	s.mu.Unlock()
 }
@@ -266,7 +259,7 @@ func (s *Sieve[K, V]) Dump() string {
 			h = ">>"
 		}
 		n := &nodes[idx]
-		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, n.visited.Load(), n.key, n.val))
+		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, s.visited.Test(idx), n.key, n.val))
 	}
 	s.mu.Unlock()
 	return b.String()
@@ -318,7 +311,7 @@ func (s *Sieve[K, V]) evict() {
 
 	nodes := s.allocator.nodes
 	for hand != nullIdx {
-		if !nodes[hand].visited.Load() {
+		if !s.visited.Test(hand) {
 			s.cache.Delete(nodes[hand].key)
 			// Critical: save prev before remove() clobbers next for freelist
 			prev := nodes[hand].prev
@@ -326,7 +319,7 @@ func (s *Sieve[K, V]) evict() {
 			s.hand = prev
 			return
 		}
-		nodes[hand].visited.Store(false)
+		s.visited.Clear(hand)
 		hand = nodes[hand].prev
 		// wrap around and start again
 		if hand == nullIdx {
@@ -373,7 +366,7 @@ func (s *Sieve[K, V]) newNode(key K, val V) int32 {
 	n.val = val
 	n.next = nullIdx
 	n.prev = nullIdx
-	n.visited.Store(false)
+	s.visited.Clear(idx)
 
 	return idx
 }

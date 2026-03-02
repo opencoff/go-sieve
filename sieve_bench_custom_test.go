@@ -266,6 +266,76 @@ func BenchmarkMemoryOverhead(b *testing.B) {
 	}
 }
 
+// BenchmarkGCPause_Final measures GC pause at 1M entries — the headline number for Phase 4.
+func BenchmarkGCPause_Final(b *testing.B) {
+	const cacheSize = 1_000_000
+	cache := sieve.New[int, int](cacheSize)
+
+	// Fill the cache
+	for i := 0; i < cacheSize; i++ {
+		cache.Add(i, i)
+	}
+
+	// Trigger a GC to stabilize
+	runtime.GC()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		key := i % (cacheSize * 2)
+		op := i % 10
+		if op < 6 {
+			cache.Get(key)
+		} else if op < 9 {
+			cache.Add(key, key)
+		} else {
+			cache.Delete(key)
+		}
+	}
+	b.StopTimer()
+
+	runtime.GC()
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
+	b.ReportMetric(float64(stats.HeapObjects), "heap-objects")
+	b.ReportMetric(float64(stats.HeapAlloc), "heap-bytes")
+
+	runtime.KeepAlive(cache)
+}
+
+// BenchmarkMemoryTotal measures total memory footprint at various cache sizes.
+func BenchmarkMemoryTotal(b *testing.B) {
+	for _, cacheSize := range []int{100_000, 500_000, 1_000_000} {
+		b.Run(fmt.Sprintf("Size_%d", cacheSize), func(b *testing.B) {
+			runtime.GC()
+			var before runtime.MemStats
+			runtime.ReadMemStats(&before)
+
+			cache := sieve.New[int, int](cacheSize)
+			for i := 0; i < cacheSize; i++ {
+				cache.Add(i, i)
+			}
+
+			runtime.GC()
+			var after runtime.MemStats
+			runtime.ReadMemStats(&after)
+
+			heapDelta := after.HeapAlloc - before.HeapAlloc
+			b.ReportMetric(float64(heapDelta), "total-heap-bytes")
+			b.ReportMetric(float64(heapDelta)/float64(cacheSize), "bytes-per-entry")
+			b.ReportMetric(float64(after.HeapObjects-before.HeapObjects), "heap-objects-delta")
+
+			// Run dummy ops so benchmark doesn't report 0 ns/op
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				cache.Get(i % cacheSize)
+			}
+
+			runtime.KeepAlive(cache)
+		})
+	}
+}
+
 // runWorkload performs a consistent workload that stresses node allocation/deallocation
 func runSieveWorkload(cache *sieve.Sieve[int, int], operations int) {
 	capacity := cache.Cap()
