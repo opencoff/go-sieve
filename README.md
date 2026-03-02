@@ -59,9 +59,9 @@ reductions are hardware-independent and show the real structural improvement.
 | `Sieve_Add` | 88.9 ns/op, 35 B, 1 alloc | 49.9 ns/op, 10 B, 0 allocs | ~1.8x, **3.5x less memory** |
 | `SieveAdd/8192` | 128.3 ns/op, 84 B, 2 allocs | 59.6 ns/op, 16 B, 1 alloc | ~2.2x, **5x less memory** |
 | `SieveConcurrency` | 167.0 ns/op, 10 B | 66.8 ns/op, 2 B | ~2.5x, **5x less memory** |
-| `Get_Parallel` | — | 3.3 ns/op | lock-free read path |
-| GC cycles (10K cache) | 6 | 5 | fewer GC pauses |
-| GC pause (1M cache) | — | 34 µs avg | near-invisible to GC |
+| `Get_Parallel` | 6.3 ns/op | 3.3 ns/op | **~1.9x faster** |
+| Heap objects (1M cache) | 2.01M | 1.02M | **2x fewer** |
+| Heap bytes (1M cache) | 179 MB | 83 MB | **2.2x less memory** |
 
 ## Usage
 
