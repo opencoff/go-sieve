@@ -34,6 +34,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
 // node contains the <key, val> tuple as a node in a linked list.
@@ -109,7 +111,7 @@ func (a *allocator[K, V]) capacity() int {
 // eviction of other entries - as determined by the SIEVE algorithm.
 type Sieve[K comparable, V any] struct {
 	mu    sync.Mutex
-	cache *syncMap[K, *node[K, V]]
+	cache *xsync.MapOf[K, *node[K, V]]
 	head  *node[K, V]
 	tail  *node[K, V]
 	hand  *node[K, V]
@@ -121,7 +123,7 @@ type Sieve[K comparable, V any] struct {
 // New creates a new cache of size 'capacity' mapping key 'K' to value 'V'
 func New[K comparable, V any](capacity int) *Sieve[K, V] {
 	s := &Sieve[K, V]{
-		cache:     newSyncMap[K, *node[K, V]](),
+		cache:     xsync.NewMapOf[K, *node[K, V]](),
 		allocator: newAllocator[K, V](capacity),
 	}
 	return s
@@ -132,7 +134,7 @@ func New[K comparable, V any](capacity int) *Sieve[K, V] {
 // The zero value for 'V' is returned when key is not in the cache.
 func (s *Sieve[K, V]) Get(key K) (V, bool) {
 
-	if v, ok := s.cache.Get(key); ok {
+	if v, ok := s.cache.Load(key); ok {
 		v.visited.Store(true)
 		return v.val, true
 	}
@@ -145,7 +147,8 @@ func (s *Sieve[K, V]) Get(key K) (V, bool) {
 // Return true if we replaced, false otherwise
 func (s *Sieve[K, V]) Add(key K, val V) bool {
 
-	if v, ok := s.cache.Get(key); ok {
+	// Fast path: key exists, just update
+	if v, ok := s.cache.Load(key); ok {
 		v.Lock()
 		v.visited.Store(true)
 		v.val = val
@@ -154,6 +157,15 @@ func (s *Sieve[K, V]) Add(key K, val V) bool {
 	}
 
 	s.mu.Lock()
+	// Re-check under lock to prevent double-insert (TOCTOU fix)
+	if v, ok := s.cache.Load(key); ok {
+		v.Lock()
+		v.visited.Store(true)
+		v.val = val
+		v.Unlock()
+		s.mu.Unlock()
+		return true
+	}
 	s.add(key, val)
 	s.mu.Unlock()
 	return false
@@ -166,12 +178,19 @@ func (s *Sieve[K, V]) Add(key K, val V) bool {
 //	<val, false> when key is not present in the cache
 func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
 
-	if v, ok := s.cache.Get(key); ok {
+	// Fast path: key exists
+	if v, ok := s.cache.Load(key); ok {
 		v.visited.Store(true)
 		return v.val, true
 	}
 
 	s.mu.Lock()
+	// Re-check under lock to prevent double-insert (TOCTOU fix)
+	if v, ok := s.cache.Load(key); ok {
+		v.visited.Store(true)
+		s.mu.Unlock()
+		return v.val, true
+	}
 	s.add(key, val)
 	s.mu.Unlock()
 	return val, false
@@ -180,21 +199,20 @@ func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
 // Delete deletes the named key from the cache
 // It returns true if the item was in the cache and false otherwise
 func (s *Sieve[K, V]) Delete(key K) bool {
-
-	if v, ok := s.cache.Del(key); ok {
-		s.mu.Lock()
+	s.mu.Lock()
+	if v, ok := s.cache.LoadAndDelete(key); ok {
 		s.remove(v)
 		s.mu.Unlock()
 		return true
 	}
-
+	s.mu.Unlock()
 	return false
 }
 
 // Purge resets the cache
 func (s *Sieve[K, V]) Purge() {
 	s.mu.Lock()
-	s.cache = newSyncMap[K, *node[K, V]]()
+	s.cache = xsync.NewMapOf[K, *node[K, V]]()
 	s.head = nil
 	s.tail = nil
 	s.hand = nil
@@ -260,7 +278,7 @@ func (s *Sieve[K, V]) add(key K, val V) {
 		panic(msg)
 	}
 
-	s.cache.Put(key, n)
+	s.cache.Store(key, n)
 
 	// insert at the head of the list
 	n.next = s.head
@@ -286,7 +304,7 @@ func (s *Sieve[K, V]) evict() {
 
 	for hand != nil {
 		if !hand.visited.Load() {
-			s.cache.Del(hand.key)
+			s.cache.Delete(hand.key)
 			s.remove(hand)
 			s.hand = hand.prev
 			return
@@ -341,36 +359,3 @@ func (s *Sieve[K, V]) desc() string {
 	return m
 }
 
-// generic sync.Map
-type syncMap[K comparable, V any] struct {
-	m sync.Map
-}
-
-func newSyncMap[K comparable, V any]() *syncMap[K, V] {
-	m := syncMap[K, V]{}
-	return &m
-}
-
-func (m *syncMap[K, V]) Get(key K) (V, bool) {
-	v, ok := m.m.Load(key)
-	if ok {
-		return v.(V), true
-	}
-
-	var z V
-	return z, false
-}
-
-func (m *syncMap[K, V]) Put(key K, val V) {
-	m.m.Store(key, val)
-}
-
-func (m *syncMap[K, V]) Del(key K) (V, bool) {
-	x, ok := m.m.LoadAndDelete(key)
-	if ok {
-		return x.(V), true
-	}
-
-	var z V
-	return z, false
-}
