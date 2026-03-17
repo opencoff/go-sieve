@@ -1,0 +1,10 @@
+=== RUN   TestGCPressure
+    replay_test.go:279: Using trace: meta_storage/block_traces_1 (13245186 requests, 6014438 unique, cache 601443)
+    replay_test.go:301: Variant         NumGC   PauseTotal     TotalAlloc  HeapObjects
+    replay_test.go:303: sieve-k1            1        187 us       154396 KB          458
+    replay_test.go:303: sieve-k3            1        404 us       154696 KB          459
+    replay_test.go:303: LRU                 1        324 us       417872 KB          459
+    replay_test.go:303: ARC                 1       1021 us       996709 KB          459
+--- PASS: TestGCPressure (105.65s)
+PASS
+ok  	github.com/opencoff/go-sieve/bench	105.892s

@@ -336,6 +336,34 @@ func BenchmarkMemoryTotal(b *testing.B) {
 	}
 }
 
+// BenchmarkEviction_VaryingVisited measures eviction scan cost sensitivity to
+// the fraction of visited nodes. 100% visited is worst case (full wrap-around).
+func BenchmarkEviction_VaryingVisited(b *testing.B) {
+	const cacheSize = 100_000
+
+	for _, pctVisited := range []int{0, 50, 90, 100} {
+		b.Run(fmt.Sprintf("Visited_%d%%", pctVisited), func(b *testing.B) {
+			cache := sieve.New[int, int](cacheSize)
+
+			// Fill the cache
+			for i := 0; i < cacheSize; i++ {
+				cache.Add(i, i)
+			}
+			// Mark pctVisited% as visited
+			visitCount := cacheSize * pctVisited / 100
+			for i := 0; i < visitCount; i++ {
+				cache.Get(i)
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key := cacheSize + i
+				cache.Add(key, key)
+			}
+		})
+	}
+}
+
 // runWorkload performs a consistent workload that stresses node allocation/deallocation
 func runSieveWorkload(cache *sieve.Sieve[int, int], operations int) {
 	capacity := cache.Cap()

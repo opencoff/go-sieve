@@ -45,3 +45,6 @@ tools/vagrant/redis-cluster-conf/7779/nodes.conf
 *.aof
 *.rdb
 *.deb
+
+# Trace data files (multi-GB, downloaded by bench/fetch-traces.sh)
+data/

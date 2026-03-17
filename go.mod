@@ -1,5 +1,5 @@
 module github.com/opencoff/go-sieve
 
-go 1.24.3
+go 1.26
 
-require github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
+require github.com/puzpuzpuz/xsync/v3 v3.5.1

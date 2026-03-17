@@ -1,4 +1,4 @@
-# go-sieve - SIEVE cache for Go
+# go-sieve - SIEVE cache eviction for Go
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/opencoff/go-sieve.svg)](https://pkg.go.dev/github.com/opencoff/go-sieve)
 [![Go Report Card](https://goreportcard.com/badge/github.com/opencoff/go-sieve)](https://goreportcard.com/report/github.com/opencoff/go-sieve)
@@ -23,8 +23,8 @@ This preserves SIEVE's exact eviction semantics while eliminating all interior
 pointers — the GC sees a flat `[]node` with no pointers to trace (for
 non-pointer `K`, `V` types).
 
-**Packed visited bitfield.** We use a packed `[]uint64` to represent
-visitied bits of all nodes in the cache.  `Test()` is a single
+**Packed visited bitfield.** Per-node `atomic.Bool` (4 bytes each, aligned to
+`uint32`) is replaced by a shared `[]uint64` bitfield. `Test()` is a single
 `atomic.LoadUint64` — zero write contention on the read path. `Set()`/`Clear()`
 use CAS loops with early exit when the bit is already in the desired state.
 For a 1M-entry cache this is 16 KB instead of 4 MB.
@@ -63,6 +63,70 @@ reductions are hardware-independent and show the real structural improvement.
 | Heap objects (1M cache) | 2.01M | 1.02M | **2x fewer** |
 | Heap bytes (1M cache) | 179 MB | 83 MB | **2.2x less memory** |
 
+## Comparison vs hashicorp/golang-lru
+
+Benchmarked against [hashicorp/golang-lru v2.0.7](https://github.com/hashicorp/golang-lru)
+(LRU and ARC) on Apple M4, `GOMAXPROCS=10`, `go test -bench=. -benchmem -count=6`.
+Benchmarks live in `bench/` as a separate module to avoid polluting `go.mod`.
+
+| Benchmark | Sieve | LRU | ARC |
+|-----------|-------|-----|-----|
+| `Get_Parallel` | **3.2 ns/op** | 127 ns/op | 140 ns/op |
+| `Add_Parallel` | **122 ns/op, 8 B** | 194 ns/op, 40 B | 264 ns/op, 74 B |
+| `Mixed_Parallel` | **67 ns/op, 2 B** | 200 ns/op, 12 B | 226 ns/op, 24 B |
+| Memory @ 1M entries | **122 MB, 1.10M allocs** | 156 MB, 1.01M allocs | 156 MB, 1.01M allocs |
+| GC impact @ 1M (mixed+GC) | **4.5 ms/op** | 9.1 ms/op | 9.4 ms/op |
+
+Sieve's lock-free `Get()` is **~40x faster** than LRU/ARC under contention.
+Write throughput is 1.6–2.2x better with 5–9x fewer bytes per op.
+
+## Trace Replay Results
+
+We validated SIEVE against real-world cache traces from the
+[libCacheSim](https://cachelib.org/) trace repository — 14 MSR Cambridge
+enterprise block I/O traces and 5 Meta Storage (Tectonic) block traces,
+totalling ~300M requests. Each trace was replayed with a cache sized at
+10% of unique keys, comparing SIEVE (k=1 and k=3) against
+hashicorp/golang-lru (LRU and ARC).
+
+**Miss ratio.** SIEVE k=1 beats LRU on nearly every trace (often by 2–7%)
+and is competitive with ARC. On msr_prn_1, SIEVE k=3 outperforms all
+others (0.3796 vs LRU 0.4341, ARC 0.4148). On msr_src1_1, SIEVE k=1
+beats ARC (0.7939 vs 0.8231).
+
+**Parallel Get throughput.** SIEVE's lock-free `Get()` is ~100x faster than
+LRU/ARC under concurrent read load (1.7–2.1 ns/op vs 173–258 ns/op on
+12 goroutines). The k=3 saturating counter adds <5% overhead.
+
+**Memory.** During trace replay, SIEVE allocates 2.7x less than LRU and
+6.5x less than ARC (154 MB vs 418 MB vs 997 MB on a 13M-request trace with
+a 601K-entry cache).
+
+| Metric | SIEVE k=1 | LRU | ARC |
+|--------|-----------|-----|-----|
+| Parallel Get (ns/op) | **1.7** | 190 | 232 |
+| Sequential replay (ns/op) | **189** | 235 | 549 |
+| Total alloc (13M replay) | **154 MB** | 418 MB | 997 MB |
+| Miss ratio (msr_hm_0) | **0.299** | 0.319 | 0.292 |
+
+Full results and methodology: [`bench/README.md`](bench/README.md).
+
+## SIEVE-k
+
+`NewWithVisits[K, V](capacity, k)` creates a SIEVE-k cache where each entry
+uses a saturating counter instead of a single visited bit. An item accessed
+k+1 times survives k eviction passes before being evicted. `k=1` is
+equivalent to classic SIEVE (single bit). Use `k=2` or `k=3` for workloads
+with repeated access patterns where extra eviction resistance is beneficial.
+
+```go
+// Classic SIEVE (k=1)
+c := sieve.New[string, int](1000)
+
+// SIEVE-k=3: items survive up to 3 eviction passes
+c := sieve.NewWithVisits[string, int](1000, 3)
+```
+
 ## Usage
 
 ```go
@@ -89,7 +153,8 @@ c.Purge() // reset entire cache
 
 | Method | Description |
 |--------|-------------|
-| `New[K, V](capacity)` | Create a cache with fixed capacity |
+| `New[K, V](capacity)` | Create a cache with fixed capacity (k=1) |
+| `NewWithVisits[K, V](capacity, k)` | Create a SIEVE-k cache with k-level saturating counters |
 | `Get(key) (V, bool)` | Look up a key (lock-free) |
 | `Add(key, val) bool` | Insert or update; returns true if key existed |
 | `Probe(key, val) (V, bool)` | Insert-if-absent; returns cached value if present |

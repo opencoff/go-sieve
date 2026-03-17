@@ -21,7 +21,8 @@
 //
 // This implementation is optimized for low GC overhead and high concurrency:
 // an array-backed doubly-linked list with int32 indices (no interior pointers),
-// a packed atomic bitfield for visited flags, and xsync.MapOf for lock-free reads.
+// a combined per-node lock+visited word (one uint64 per node), and xsync.MapOf
+// for lock-free reads.
 package sieve
 
 import (
@@ -32,32 +33,41 @@ import (
 	"github.com/puzpuzpuz/xsync/v3"
 )
 
-const nullIdx = int32(-1)
+const (
+	nullIdx     = int32(-1)
+	sentinelIdx = int32(0) // index 0 is always the sentinel node
+)
 
 // node contains the <key, val> tuple as a node in a linked list.
+// Synchronization is external: the per-node slotState word protects
+// val reads/writes via its embedded spinlock.
 type node[K comparable, V any] struct {
-	sync.Mutex
 	key  K
 	val  V
-	next int32 // index into backing array, nullIdx = null
+	next int32 // index into backing array
 	prev int32
 }
 
 // allocator manages a fixed pool of pre-allocated nodes using bump allocation
-// and an index-based freelist.
+// and an index-based freelist. Index 0 is reserved for the sentinel node and
+// is never allocated or freed.
 type allocator[K comparable, V any] struct {
-	nodes []node[K, V] // the full backing array (never resliced)
-	cur   int32        // bump allocator cursor
+	nodes []node[K, V] // the full backing array (never resliced), index 0 = sentinel
+	cur   int32        // bump allocator cursor (starts at 1, skipping sentinel)
 	next  int32        // head of freelist (nullIdx = empty)
+	cap   int32        // user-requested capacity (excludes sentinel)
 }
 
-// newAllocator creates a new allocator with capacity nodes
-func newAllocator[K comparable, V any](capacity int) *allocator[K, V] {
-	return &allocator[K, V]{
-		nodes: make([]node[K, V], capacity),
-		cur:   0,
-		next:  nullIdx,
-	}
+// initAllocator initializes an allocator with capacity usable nodes.
+// Allocates capacity+1 slots (index 0 is the sentinel).
+func initAllocator[K comparable, V any](a *allocator[K, V], capacity int) {
+	a.nodes = make([]node[K, V], capacity+1) // +1 for sentinel
+	a.cur = 1                                // skip sentinel at index 0
+	a.next = nullIdx
+	a.cap = int32(capacity)
+	// Initialize sentinel: circular self-links
+	a.nodes[sentinelIdx].next = sentinelIdx
+	a.nodes[sentinelIdx].prev = sentinelIdx
 }
 
 // alloc retrieves a node index from the allocator.
@@ -71,8 +81,8 @@ func (a *allocator[K, V]) alloc() int32 {
 		return idx
 	}
 
-	// Bump allocate
-	if a.cur >= a.capacity() {
+	// Bump allocate (total array length = cap + 1 for sentinel)
+	if a.cur > a.cap {
 		return nullIdx
 	}
 
@@ -81,21 +91,31 @@ func (a *allocator[K, V]) alloc() int32 {
 	return idx
 }
 
-// free returns a node at idx to the freelist
+// free returns a node at idx to the freelist.
+// Caller must have already zeroed key/val (done in remove() under slot lock).
 func (a *allocator[K, V]) free(idx int32) {
 	a.nodes[idx].next = a.next
 	a.next = idx
 }
 
-// reset resets the allocator to its initial state
+// reset resets the allocator to its initial state and re-initializes
+// the sentinel's circular self-links.
+//
+// Note: key/val fields are NOT zeroed here to avoid racing with concurrent
+// Get() calls that may hold a stale index. Instead, newNode() overwrites
+// key/val under the slot lock, and remove() zeroes them under the slot lock.
+// After Purge, stale key/val references are retained until slots are reused;
+// this is an acceptable GC trade-off for a rare operation.
 func (a *allocator[K, V]) reset() {
-	a.cur = 0
+	a.cur = 1 // skip sentinel
 	a.next = nullIdx
+	a.nodes[sentinelIdx].next = sentinelIdx
+	a.nodes[sentinelIdx].prev = sentinelIdx
 }
 
-// capacity returns the total capacity as int32
+// capacity returns the user-visible capacity (excludes sentinel)
 func (a *allocator[K, V]) capacity() int32 {
-	return int32(len(a.nodes))
+	return a.cap
 }
 
 // Sieve represents a cache mapping the key of type 'K' with
@@ -104,27 +124,44 @@ func (a *allocator[K, V]) capacity() int32 {
 // new additions to the cache beyond the capacity will cause cache
 // eviction of other entries - as determined by the SIEVE algorithm.
 type Sieve[K comparable, V any] struct {
-	mu      sync.Mutex
-	cache   *xsync.MapOf[K, int32]
-	head    int32
-	tail    int32
-	hand    int32
-	size    int
-	visited atomicBitfield
+	mu    sync.Mutex
+	cache *xsync.MapOf[K, int32]
+	slots slotState // combined per-node lock + visited counter
+	hand  int32     // eviction hand; sentinelIdx means "unset, start from tail"
+	size  int
 
-	allocator *allocator[K, V]
+	allocator allocator[K, V] // embedded by value — one fewer GC-traced pointer
 }
 
-// New creates a new cache of size 'capacity' mapping key 'K' to value 'V'
+// New creates a new cache of size 'capacity' mapping key 'K' to value 'V'.
+// This uses classic SIEVE with a single visited bit (k=1).
 func New[K comparable, V any](capacity int) *Sieve[K, V] {
+	// +1 for sentinel in slot array to keep indexing aligned
+	total := capacity + 1
 	s := &Sieve[K, V]{
-		cache:     xsync.NewMapOf[K, int32](),
-		head:      nullIdx,
-		tail:      nullIdx,
-		hand:      nullIdx,
-		visited:   newAtomicBitfield(capacity),
-		allocator: newAllocator[K, V](capacity),
+		cache: xsync.NewMapOf[K, int32](),
+		hand:  sentinelIdx,
+		slots: newSlotState(total, 1),
 	}
+	initAllocator(&s.allocator, capacity)
+	return s
+}
+
+// NewWithVisits creates a SIEVE-k cache where each entry can accumulate
+// up to k visit counts before being considered "maximally visited".
+// k=1 is equivalent to classic SIEVE. k>1 uses multi-bit saturating
+// counters: an item accessed k+1 times survives k eviction passes.
+func NewWithVisits[K comparable, V any](capacity int, k int) *Sieve[K, V] {
+	if k < 1 {
+		k = 1
+	}
+	total := capacity + 1
+	s := &Sieve[K, V]{
+		cache: xsync.NewMapOf[K, int32](),
+		hand:  sentinelIdx,
+		slots: newSlotState(total, k),
+	}
+	initAllocator(&s.allocator, capacity)
 	return s
 }
 
@@ -133,8 +170,15 @@ func New[K comparable, V any](capacity int) *Sieve[K, V] {
 // The zero value for 'V' is returned when key is not in the cache.
 func (s *Sieve[K, V]) Get(key K) (V, bool) {
 	if idx, ok := s.cache.Load(key); ok {
-		s.visited.Set(idx)
-		return s.allocator.nodes[idx].val, true
+		s.slots.LockAndMark(idx)
+		n := &s.allocator.nodes[idx]
+		if n.key == key {
+			val := n.val
+			s.slots.Unlock(idx)
+			return val, true
+		}
+		// Stale idx: node was evicted and reused for a different key.
+		s.slots.Unlock(idx)
 	}
 
 	var x V
@@ -149,21 +193,22 @@ func (s *Sieve[K, V]) Add(key K, val V) bool {
 	// Fast path: key exists, just update
 	if idx, ok := s.cache.Load(key); ok {
 		n := &nodes[idx]
-		n.Lock()
-		n.val = val
-		n.Unlock()
-		s.visited.Set(idx)
-		return true
+		s.slots.LockAndMark(idx)
+		if n.key == key {
+			n.val = val
+			s.slots.Unlock(idx)
+			return true
+		}
+		// Stale idx: node was evicted and reused. Fall through to slow path.
+		s.slots.Unlock(idx)
 	}
 
 	s.mu.Lock()
 	// Re-check under lock to prevent double-insert (TOCTOU fix)
 	if idx, ok := s.cache.Load(key); ok {
-		n := &nodes[idx]
-		n.Lock()
-		n.val = val
-		n.Unlock()
-		s.visited.Set(idx)
+		s.slots.LockAndMark(idx)
+		nodes[idx].val = val
+		s.slots.Unlock(idx)
 		s.mu.Unlock()
 		return true
 	}
@@ -182,16 +227,25 @@ func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
 
 	// Fast path: key exists
 	if idx, ok := s.cache.Load(key); ok {
-		s.visited.Set(idx)
-		return nodes[idx].val, true
+		n := &nodes[idx]
+		s.slots.LockAndMark(idx)
+		if n.key == key {
+			v := n.val
+			s.slots.Unlock(idx)
+			return v, true
+		}
+		// Stale idx: node was evicted and reused. Fall through to slow path.
+		s.slots.Unlock(idx)
 	}
 
 	s.mu.Lock()
 	// Re-check under lock to prevent double-insert (TOCTOU fix)
 	if idx, ok := s.cache.Load(key); ok {
-		s.visited.Set(idx)
+		s.slots.LockAndMark(idx)
+		v := nodes[idx].val
+		s.slots.Unlock(idx)
 		s.mu.Unlock()
-		return nodes[idx].val, true
+		return v, true
 	}
 	s.add(key, val)
 	s.mu.Unlock()
@@ -211,17 +265,20 @@ func (s *Sieve[K, V]) Delete(key K) bool {
 	return false
 }
 
-// Purge resets the cache
+// Purge resets the cache. Concurrent Get/Add/Probe calls that loaded
+// an index before Purge may return a stale result; this is inherent to
+// any concurrent purge operation.
+//
+// We intentionally do NOT call slots.ResetAll() here. Visited bits for
+// reused slots are cleared by newNode() via LockAndReset(), which safely
+// spins until any concurrent fast-path holder releases the slot lock.
+// An unconditional ResetAll(Store→0) would destroy locks held by stale
+// fast-path goroutines, causing two goroutines to "hold" the same lock.
 func (s *Sieve[K, V]) Purge() {
 	s.mu.Lock()
-	s.cache = xsync.NewMapOf[K, int32]()
-	s.head = nullIdx
-	s.tail = nullIdx
-	s.hand = nullIdx
-
-	// Reset the allocator and visited bits
+	s.hand = sentinelIdx
+	s.cache.Clear()
 	s.allocator.reset()
-	s.visited.Reset()
 	s.size = 0
 	s.mu.Unlock()
 }
@@ -253,13 +310,13 @@ func (s *Sieve[K, V]) Dump() string {
 	b.WriteString(s.desc())
 	b.WriteRune('\n')
 	nodes := s.allocator.nodes
-	for idx := s.head; idx != nullIdx; idx = nodes[idx].next {
+	for idx := nodes[sentinelIdx].next; idx != sentinelIdx; idx = nodes[idx].next {
 		h := "  "
 		if idx == s.hand {
 			h = ">>"
 		}
 		n := &nodes[idx]
-		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, s.visited.Test(idx), n.key, n.val))
+		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, s.slots.IsVisited(idx), n.key, n.val))
 	}
 	s.mu.Unlock()
 	return b.String()
@@ -287,16 +344,13 @@ func (s *Sieve[K, V]) add(key K, val V) {
 
 	nodes := s.allocator.nodes
 
-	// insert at the head of the list
-	nodes[idx].next = s.head
-	nodes[idx].prev = nullIdx
-	if s.head != nullIdx {
-		nodes[s.head].prev = idx
-	}
-	s.head = idx
-	if s.tail == nullIdx {
-		s.tail = idx
-	}
+	// Insert after sentinel (at head of list). Branch-free.
+	n := &nodes[idx]
+	sen := &nodes[sentinelIdx]
+	head := sen.next
+
+	n.next, n.prev = head, sentinelIdx
+	sen.next, nodes[head].prev = idx, idx
 
 	s.size += 1
 }
@@ -305,49 +359,56 @@ func (s *Sieve[K, V]) add(key K, val V) {
 // NB: Caller must hold the lock
 func (s *Sieve[K, V]) evict() {
 	hand := s.hand
-	if hand == nullIdx {
-		hand = s.tail
+	nodes := s.allocator.nodes
+	sen := &nodes[sentinelIdx]
+
+	if hand == sentinelIdx {
+		// Start from tail (sentinel.prev)
+		hand = sen.prev
 	}
 
-	nodes := s.allocator.nodes
-	for hand != nullIdx {
-		if !s.visited.Test(hand) {
-			s.cache.Delete(nodes[hand].key)
-			// Critical: save prev before remove() clobbers next for freelist
-			prev := nodes[hand].prev
+	for hand != sentinelIdx {
+		n := &nodes[hand]
+		if !s.slots.IsVisited(hand) {
+			s.cache.Delete(n.key)
+			// Save prev before remove() clobbers next for freelist
+			prev := n.prev
 			s.remove(hand)
 			s.hand = prev
 			return
 		}
-		s.visited.Clear(hand)
-		hand = nodes[hand].prev
-		// wrap around and start again
-		if hand == nullIdx {
-			hand = s.tail
+		s.slots.Clear(hand)
+		hand = n.prev
+		// Wrap around: if we hit sentinel, go to tail
+		if hand == sentinelIdx {
+			hand = sen.prev
 		}
 	}
 	s.hand = hand
 }
 
 // remove removes the node at idx from the linked list and frees it.
-// Caller must hold lock.
+// Caller must hold s.mu. Key/val are zeroed under the slot lock to
+// serialize with concurrent fast-path reads and to release GC references.
+// Branch-free: sentinel eliminates null checks.
 func (s *Sieve[K, V]) remove(idx int32) {
 	s.size -= 1
 
 	nodes := s.allocator.nodes
 	n := &nodes[idx]
 
-	// remove node from list
-	if n.prev != nullIdx {
-		nodes[n.prev].next = n.next
-	} else {
-		s.head = n.next
-	}
-	if n.next != nullIdx {
-		nodes[n.next].prev = n.prev
-	} else {
-		s.tail = n.prev
-	}
+	// Unlink — no branches needed thanks to sentinel
+	nodes[n.prev].next = n.next
+	nodes[n.next].prev = n.prev
+
+	// Zero key/val under slot lock to synchronize with fast-path reads
+	// and allow GC to collect pointed-to objects.
+	s.slots.Lock(idx)
+	var zk K
+	var zv V
+	n.key = zk
+	n.val = zv
+	s.slots.Unlock(idx)
 
 	// Return the node to the allocator's freelist
 	s.allocator.free(idx)
@@ -355,25 +416,34 @@ func (s *Sieve[K, V]) remove(idx int32) {
 
 // newNode allocates a node and initializes it with key and val.
 // Returns nullIdx if no nodes are available.
+//
+// Field writes are performed under the slot lock to serialize with
+// concurrent fast-path reads (Get/Add/Probe) that may hold a stale
+// index from before eviction. The Lock/Unlock on the slot establishes
+// a happens-before edge so the fast path sees the new key/val.
 func (s *Sieve[K, V]) newNode(key K, val V) int32 {
 	idx := s.allocator.alloc()
 	if idx == nullIdx {
 		return nullIdx
 	}
 
+	s.slots.LockAndReset(idx)
+
 	n := &s.allocator.nodes[idx]
 	n.key = key
 	n.val = val
 	n.next = nullIdx
 	n.prev = nullIdx
-	s.visited.Clear(idx)
 
+	s.slots.Unlock(idx)
 	return idx
 }
 
 // desc describes the properties of the sieve
 func (s *Sieve[K, V]) desc() string {
+	nodes := s.allocator.nodes
 	m := fmt.Sprintf("cache<%T>: size %d, cap %d, head=%d, tail=%d, hand=%d",
-		s, s.size, int(s.allocator.capacity()), s.head, s.tail, s.hand)
+		s, s.size, int(s.allocator.capacity()),
+		nodes[sentinelIdx].next, nodes[sentinelIdx].prev, s.hand)
 	return m
 }

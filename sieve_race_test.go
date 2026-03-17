@@ -160,6 +160,49 @@ func BenchmarkMixed_Parallel(b *testing.B) {
 	})
 }
 
+// BenchmarkProbe_Parallel measures concurrent Probe (insert-if-absent) throughput.
+func BenchmarkProbe_Parallel(b *testing.B) {
+	const cacheSize = 8192
+	s := sieve.New[int, int](cacheSize)
+
+	// Pre-fill half the cache so Probe sees a mix of hits and misses
+	for i := 0; i < cacheSize/2; i++ {
+		s.Add(i, i)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		r := rand.New(rand.NewSource(rand.Int63()))
+		for pb.Next() {
+			key := r.Intn(cacheSize * 2)
+			s.Probe(key, key)
+		}
+	})
+}
+
+// BenchmarkDelete_Parallel measures concurrent Delete throughput.
+func BenchmarkDelete_Parallel(b *testing.B) {
+	const cacheSize = 8192
+	s := sieve.New[int, int](cacheSize)
+
+	// Pre-fill
+	for i := 0; i < cacheSize; i++ {
+		s.Add(i, i)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		r := rand.New(rand.NewSource(rand.Int63()))
+		for pb.Next() {
+			key := r.Intn(cacheSize * 2)
+			if !s.Delete(key) {
+				// Re-add so future deletes can succeed
+				s.Add(key, key)
+			}
+		}
+	})
+}
+
 // BenchmarkAdd_ContentionStorm hammers a small key set from many goroutines.
 func BenchmarkAdd_ContentionStorm(b *testing.B) {
 	for _, keyRange := range []int{1, 4, 16, 64} {

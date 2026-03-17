@@ -12,21 +12,21 @@ func TestVisitedBits_SetClearTest(t *testing.T) {
 
 	// All bits should start clear
 	for i := int32(0); i < 256; i++ {
-		if vb.Test(i) {
+		if vb.IsVisited(i) {
 			t.Fatalf("bit %d should be clear initially", i)
 		}
 	}
 
 	// Set every other bit
 	for i := int32(0); i < 256; i += 2 {
-		vb.Set(i)
+		vb.Mark(i)
 	}
 
 	// Verify pattern
 	for i := int32(0); i < 256; i++ {
 		expected := i%2 == 0
-		if vb.Test(i) != expected {
-			t.Fatalf("bit %d: expected %v, got %v", i, expected, vb.Test(i))
+		if vb.IsVisited(i) != expected {
+			t.Fatalf("bit %d: expected %v, got %v", i, expected, vb.IsVisited(i))
 		}
 	}
 
@@ -37,18 +37,18 @@ func TestVisitedBits_SetClearTest(t *testing.T) {
 
 	// All should be clear again
 	for i := int32(0); i < 256; i++ {
-		if vb.Test(i) {
+		if vb.IsVisited(i) {
 			t.Fatalf("bit %d should be clear after Clear", i)
 		}
 	}
 
 	// Set all, then Reset
 	for i := int32(0); i < 256; i++ {
-		vb.Set(i)
+		vb.Mark(i)
 	}
-	vb.Reset()
+	vb.ResetAll()
 	for i := int32(0); i < 256; i++ {
-		if vb.Test(i) {
+		if vb.IsVisited(i) {
 			t.Fatalf("bit %d should be clear after Reset", i)
 		}
 	}
@@ -59,9 +59,9 @@ func TestVisitedBits_SetIdempotent(t *testing.T) {
 
 	// Setting the same bit multiple times should be fine
 	for i := 0; i < 100; i++ {
-		vb.Set(42)
+		vb.Mark(42)
 	}
-	if !vb.Test(42) {
+	if !vb.IsVisited(42) {
 		t.Fatal("bit 42 should be set")
 	}
 
@@ -69,7 +69,7 @@ func TestVisitedBits_SetIdempotent(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		vb.Clear(42)
 	}
-	if vb.Test(42) {
+	if vb.IsVisited(42) {
 		t.Fatal("bit 42 should be clear")
 	}
 }
@@ -80,8 +80,8 @@ func TestVisitedBits_WordBoundaries(t *testing.T) {
 	// Test bits at word boundaries (63, 64, 127, 128)
 	boundaries := []int32{0, 1, 62, 63, 64, 65, 126, 127, 128, 129, 255}
 	for _, idx := range boundaries {
-		vb.Set(idx)
-		if !vb.Test(idx) {
+		vb.Mark(idx)
+		if !vb.IsVisited(idx) {
 			t.Fatalf("bit %d should be set", idx)
 		}
 	}
@@ -95,8 +95,8 @@ func TestVisitedBits_WordBoundaries(t *testing.T) {
 				break
 			}
 		}
-		if vb.Test(i) != isBoundary {
-			t.Fatalf("bit %d: expected %v, got %v", i, isBoundary, vb.Test(i))
+		if vb.IsVisited(i) != isBoundary {
+			t.Fatalf("bit %d: expected %v, got %v", i, isBoundary, vb.IsVisited(i))
 		}
 	}
 }
@@ -120,11 +120,11 @@ func TestVisitedBits_Concurrent(t *testing.T) {
 				idx := int32(r.Intn(capacity))
 				switch r.Intn(3) {
 				case 0:
-					vb.Set(idx)
+					vb.Mark(idx)
 				case 1:
 					vb.Clear(idx)
 				case 2:
-					vb.Test(idx)
+					vb.IsVisited(idx)
 				}
 			}
 		}(int64(g))
@@ -133,9 +133,9 @@ func TestVisitedBits_Concurrent(t *testing.T) {
 
 	// No crash or race detector complaint = pass
 	// Verify Reset works after concurrent abuse
-	vb.Reset()
+	vb.ResetAll()
 	for i := int32(0); i < capacity; i++ {
-		if vb.Test(i) {
+		if vb.IsVisited(i) {
 			t.Fatalf("bit %d should be clear after Reset", i)
 		}
 	}
@@ -145,7 +145,7 @@ func BenchmarkVisitedBits_Set(b *testing.B) {
 	vb := newAtomicBitfield(1 << 20) // 1M bits
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		vb.Set(int32(i % (1 << 20)))
+		vb.Mark(int32(i % (1 << 20)))
 	}
 }
 
@@ -155,7 +155,7 @@ func BenchmarkVisitedBits_Set_Contended(b *testing.B) {
 		r := rand.New(rand.NewSource(rand.Int63()))
 		for pb.Next() {
 			idx := int32(r.Intn(64))
-			vb.Set(idx)
+			vb.Mark(idx)
 		}
 	})
 }
@@ -164,11 +164,11 @@ func BenchmarkVisitedBits_Test(b *testing.B) {
 	vb := newAtomicBitfield(1 << 20)
 	// Set half the bits
 	for i := int32(0); i < 1<<20; i += 2 {
-		vb.Set(i)
+		vb.Mark(i)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		vb.Test(int32(i % (1 << 20)))
+		vb.IsVisited(int32(i % (1 << 20)))
 	}
 }
 
@@ -176,7 +176,7 @@ func BenchmarkVisitedBits_Clear(b *testing.B) {
 	vb := newAtomicBitfield(1 << 20)
 	// Set all bits first
 	for i := int32(0); i < 1<<20; i++ {
-		vb.Set(i)
+		vb.Mark(i)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
