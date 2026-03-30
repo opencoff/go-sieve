@@ -80,9 +80,9 @@ func TestEdge_DeleteNonexistent(t *testing.T) {
 func TestEdge_ProbeInsertsThenReturns(t *testing.T) {
 	s := sieve.New[int, string](4)
 
-	// Probe on miss inserts and returns (val, false)
-	v, ok := s.Probe(1, "hello")
-	if ok {
+	// Probe on miss inserts and returns (val, _, 0)
+	v, _, r := s.Probe(1, "hello")
+	if r.Hit() {
 		t.Fatal("expected miss on first Probe")
 	}
 	if v != "hello" {
@@ -90,8 +90,8 @@ func TestEdge_ProbeInsertsThenReturns(t *testing.T) {
 	}
 
 	// Probe on hit returns cached value, not the passed value
-	v, ok = s.Probe(1, "world")
-	if !ok {
+	v, _, r = s.Probe(1, "world")
+	if !r.Hit() {
 		t.Fatal("expected hit on second Probe")
 	}
 	if v != "hello" {
@@ -143,16 +143,16 @@ func TestEdge_PurgeAndReuse(t *testing.T) {
 func TestEdge_AddUpdateReturnValue(t *testing.T) {
 	s := sieve.New[string, int](4)
 
-	// First add: returns false (new key)
-	ok := s.Add("x", 1)
-	if ok {
-		t.Fatal("first Add should return false")
+	// First add: not a hit (new key)
+	_, r := s.Add("x", 1)
+	if r.Hit() {
+		t.Fatal("first Add should not be a hit")
 	}
 
-	// Second add: returns true (existing key updated)
-	ok = s.Add("x", 2)
-	if !ok {
-		t.Fatal("second Add should return true")
+	// Second add: hit (existing key updated)
+	_, r = s.Add("x", 2)
+	if !r.Hit() {
+		t.Fatal("second Add should be a hit")
 	}
 
 	v, _ := s.Get("x")
@@ -399,12 +399,11 @@ func TestConcurrent_ProbeConsistency(t *testing.T) {
 				key := r.Intn(keyRange)
 				probeVal := key * 1000
 
-				v, ok := s.Probe(key, probeVal)
+				v, _, _ := s.Probe(key, probeVal)
 				gotKey := v / 1000
 				if gotKey != key {
 					violations.Add(1)
 				}
-				_ = ok
 			}
 		}(g)
 	}
@@ -419,7 +418,7 @@ func TestConcurrent_ProbeConsistency(t *testing.T) {
 // --- SIEVE-k Additional Tests ---
 
 func TestSieveK_K2(t *testing.T) {
-	c := sieve.NewWithVisits[string, int](3, 2)
+	c := sieve.New[string, int](3, sieve.WithVisitClamp(2))
 
 	c.Add("A", 1)
 	c.Add("B", 2)
@@ -444,7 +443,7 @@ func TestSieveK_K2(t *testing.T) {
 
 func TestSieveK_LargeK(t *testing.T) {
 	// k=7 — uses 3 bits for counter
-	c := sieve.NewWithVisits[int, int](4, 7)
+	c := sieve.New[int, int](4, sieve.WithVisitClamp(7))
 
 	c.Add(1, 1)
 	c.Add(2, 2)
@@ -467,7 +466,7 @@ func TestSieveK_LargeK(t *testing.T) {
 }
 
 func TestSieveK_PurgeResetsCounters(t *testing.T) {
-	c := sieve.NewWithVisits[int, int](4, 3)
+	c := sieve.New[int, int](4, sieve.WithVisitClamp(3))
 
 	c.Add(1, 1)
 	for i := 0; i < 10; i++ {
@@ -656,7 +655,7 @@ func TestEdge_EvictionAllVisited_Repeated(t *testing.T) {
 // TestEdge_NewWithVisits_K0 verifies that NewWithVisits with k=0 is
 // clamped to k=1 and behaves identically to New.
 func TestEdge_NewWithVisits_K0(t *testing.T) {
-	c := sieve.NewWithVisits[int, int](4, 0)
+	c := sieve.New[int, int](4, sieve.WithVisitClamp(0))
 
 	c.Add(1, 10)
 	c.Add(2, 20)
@@ -735,18 +734,18 @@ func TestEdge_ProbeAfterDelete(t *testing.T) {
 	}
 
 	// Probe should re-insert
-	v, ok := s.Probe("key", 200)
-	if ok {
-		t.Fatal("Probe should return false (miss) after Delete")
+	v, _, r := s.Probe("key", 200)
+	if r.Hit() {
+		t.Fatal("Probe should return miss after Delete")
 	}
 	if v != 200 {
 		t.Fatalf("Probe miss: expected 200, got %d", v)
 	}
 
 	// Now it should be present
-	v, ok = s.Get("key")
-	if !ok || v != 200 {
-		t.Fatalf("Get after Probe re-insert = (%d, %v), want (200, true)", v, ok)
+	v2, ok := s.Get("key")
+	if !ok || v2 != 200 {
+		t.Fatalf("Get after Probe re-insert = (%d, %v), want (200, true)", v2, ok)
 	}
 }
 
@@ -901,7 +900,7 @@ func TestConcurrent_AddDeleteSameKey(t *testing.T) {
 						}
 					}
 				case 3:
-					if v, ok := s.Probe(key, encodedVal); ok {
+					if v, _, r := s.Probe(key, encodedVal); r.Hit() {
 						probeHits.Add(1)
 						if v/1000 != key {
 							violations.Add(1)
@@ -1017,7 +1016,7 @@ func TestConcurrent_ProbeReturnValue(t *testing.T) {
 				key := r.Intn(keyRange)
 				probeVal := key * 1000
 
-				v, _ := s.Probe(key, probeVal)
+				v, _, _ := s.Probe(key, probeVal)
 				// Whether hit or miss, the value must belong to this key
 				if v/1000 != key {
 					violations.Add(1)

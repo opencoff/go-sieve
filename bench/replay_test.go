@@ -104,11 +104,11 @@ func TestMissRatio(t *testing.T) {
 					return replayMisses(c, trace)
 				}},
 				{"sieve-k2", func() int {
-					c := sieve.NewWithVisits[uint64, struct{}](capacity, 2)
+					c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(2))
 					return replayMisses(c, trace)
 				}},
 				{"sieve-k3", func() int {
-					c := sieve.NewWithVisits[uint64, struct{}](capacity, 3)
+					c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
 					return replayMisses(c, trace)
 				}},
 				{"LRU", func() int {
@@ -152,7 +152,7 @@ func BenchmarkReplay(b *testing.B) {
 
 		b.Run(e.name+"/SieveK3", func(b *testing.B) {
 			for range b.N {
-				c := sieve.NewWithVisits[uint64, struct{}](capacity, 3)
+				c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
 				misses := replayMisses(c, trace)
 				b.ReportMetric(float64(misses)/float64(len(trace.Requests)), "miss-ratio")
 			}
@@ -202,7 +202,7 @@ func BenchmarkParallelGet(b *testing.B) {
 		})
 
 		b.Run(e.name+"/SieveK3", func(b *testing.B) {
-			c := sieve.NewWithVisits[uint64, struct{}](capacity, 3)
+			c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
 			warmup(c, trace)
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
@@ -287,7 +287,7 @@ func TestGCPressure(t *testing.T) {
 			replayMisses(c, trace)
 		}),
 		runGCTest("sieve-k3", func() {
-			c := sieve.NewWithVisits[uint64, struct{}](capacity, 3)
+			c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
 			replayMisses(c, trace)
 		}),
 		runGCTest("LRU", func() {
@@ -311,7 +311,7 @@ func TestGCPressure(t *testing.T) {
 
 type sieveCache interface {
 	Get(uint64) (struct{}, bool)
-	Add(uint64, struct{}) bool
+	Add(uint64, struct{}) (sieve.Evicted[uint64, struct{}], sieve.CacheResult)
 }
 
 func replayMisses(c sieveCache, trace *bench.Trace[uint64]) int {

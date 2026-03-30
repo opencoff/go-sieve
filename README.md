@@ -32,8 +32,8 @@ For a 1M-entry cache this is 16 KB instead of 4 MB.
 **xsync.MapOf for concurrent access.** The key→index map uses
 [puzpuzpuz/xsync.MapOf](https://github.com/puzpuzpuz/xsync) which stores
 `int32` values inline in cache-line-padded buckets — no traced pointers per
-entry. `Get()` is fully lock-free; only `Add()` (on miss) and `Delete()` take
-the global mutex.
+entry. `Get()` is fully lock-free; only `Add()`/`Probe()` (on miss) and
+`Delete()` take the global mutex.
 
 **Pre-allocated node pool.** All nodes are allocated once at cache creation in
 a contiguous array. A bump allocator + intrusive freelist (reusing `node.next`)
@@ -113,18 +113,18 @@ Full results and methodology: [`bench/README.md`](bench/README.md).
 
 ## SIEVE-k
 
-`NewWithVisits[K, V](capacity, k)` creates a SIEVE-k cache where each entry
-uses a saturating counter instead of a single visited bit. An item accessed
-k+1 times survives k eviction passes before being evicted. `k=1` is
-equivalent to classic SIEVE (single bit). Use `k=2` or `k=3` for workloads
-with repeated access patterns where extra eviction resistance is beneficial.
+`WithVisitClamp(k)` creates a SIEVE-k cache where each entry uses a
+saturating counter instead of a single visited bit. An item accessed k+1
+times survives k eviction passes before being evicted. `k=1` is equivalent
+to classic SIEVE (the default). Use `k=2` or `k=3` for workloads with
+repeated access patterns where extra eviction resistance is beneficial.
 
 ```go
-// Classic SIEVE (k=1)
+// Classic SIEVE (k=1, the default)
 c := sieve.New[string, int](1000)
 
 // SIEVE-k=3: items survive up to 3 eviction passes
-c := sieve.NewWithVisits[string, int](1000, 3)
+c := sieve.New[string, int](1000, sieve.WithVisitClamp(3))
 ```
 
 ## Usage
@@ -142,26 +142,52 @@ if val, ok := c.Get("foo"); ok {
 }
 
 // Probe inserts only if absent; returns the cached value if present.
-val, existed := c.Probe("foo", 99)
-// val == 42, existed == true
+val, _, r := c.Probe("foo", 99)
+// val == 42, r.Hit() == true
 
 c.Delete("foo")
 c.Purge() // reset entire cache
 ```
 
+### Eviction Handling
+
+`Add()` and `Probe()` return the evicted entry (if any) along with a
+`CacheResult` bitmask. This allows callers to handle evictions
+synchronously without channels, goroutines, or lifecycle management.
+
+```go
+c := sieve.New[string, int](1000)
+
+ev, r := c.Add("foo", 42)
+if r.Evicted() {
+    cleanupDisk(ev.Key, ev.Val)
+}
+
+// CacheResult bitmask:
+//   CacheHit   — key was already present (value updated, no eviction)
+//   CacheEvict — an entry was evicted to make room (mutually exclusive with CacheHit)
+```
+
+`Purge()` and `Delete()` do not report evictions.
+
 ## API
 
 | Method | Description |
 |--------|-------------|
-| `New[K, V](capacity)` | Create a cache with fixed capacity (k=1) |
-| `NewWithVisits[K, V](capacity, k)` | Create a SIEVE-k cache with k-level saturating counters |
+| `New[K, V](capacity, ...Option)` | Create a cache with fixed capacity |
 | `Get(key) (V, bool)` | Look up a key (lock-free) |
-| `Add(key, val) bool` | Insert or update; returns true if key existed |
-| `Probe(key, val) (V, bool)` | Insert-if-absent; returns cached value if present |
+| `Add(key, val) (Evicted[K,V], CacheResult)` | Insert or update; returns evicted entry and result bitmask |
+| `Probe(key, val) (V, Evicted[K,V], CacheResult)` | Insert-if-absent; returns cached/inserted value, evicted entry, and result bitmask |
 | `Delete(key) bool` | Remove a key |
 | `Purge()` | Clear the entire cache |
 | `Len() int` | Current number of entries |
 | `Cap() int` | Maximum capacity |
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `WithVisitClamp(k)` | Use k-level saturating counters (default k=1, classic SIEVE) |
 
 ## GC Note
 

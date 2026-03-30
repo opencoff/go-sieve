@@ -1,4 +1,4 @@
-// sieve_evict_test.go - eviction channel notification tests
+// sieve_evict_test.go - eviction return value tests
 //
 // (c) 2024 Sudhi Herle <sudhi@herle.net>
 //
@@ -15,21 +15,18 @@
 package sieve_test
 
 import (
-	"runtime"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/opencoff/go-sieve"
 )
 
-// TestEvict_Basic verifies that a single eviction delivers the correct
-// key and value on the eviction channel.
+// TestEvict_Basic verifies that a single eviction returns the correct
+// key and value from Add.
 func TestEvict_Basic(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, string](4, sieve.WithOnEvict(8))
-	defer s.Close()
+	s := sieve.New[int, string](4)
 
 	s.Add(1, "one")
 	s.Add(2, "two")
@@ -37,70 +34,53 @@ func TestEvict_Basic(t *testing.T) {
 	s.Add(4, "four")
 
 	// Adding a 5th item triggers eviction of the tail (key 1, unvisited).
-	s.Add(5, "five")
-
-	ch := s.Evictor()
-	select {
-	case ev := <-ch:
-		assert(ev.Key == 1, "evicted key: got %d, want 1", ev.Key)
-		assert(ev.Val == "one", "evicted val: got %q, want %q", ev.Val, "one")
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for eviction event")
-	}
+	ev, r := s.Add(5, "five")
+	assert(r.Evicted(), "expected eviction on 5th add")
+	assert(ev.Key == 1, "evicted key: got %d, want 1", ev.Key)
+	assert(ev.Val == "one", "evicted val: got %q, want %q", ev.Val, "one")
 }
 
-// TestEvict_CaptureBeforeZero verifies that the eviction event contains
-// the original values, not zero values. This guards against a regression
-// where evict() might zero the node before capturing.
+// TestEvict_CaptureBeforeZero verifies that the eviction result contains
+// the original values, not zero values.
 func TestEvict_CaptureBeforeZero(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[string, int](2, sieve.WithOnEvict(4))
-	defer s.Close()
+	s := sieve.New[string, int](2)
 
 	s.Add("alpha", 42)
 	s.Add("beta", 99)
-	s.Add("gamma", 7) // evicts "alpha"
+	ev, r := s.Add("gamma", 7) // evicts "alpha"
 
-	ev := <-s.Evictor()
+	assert(r.Evicted(), "expected eviction")
 	assert(ev.Key == "alpha", "evicted key: got %q, want %q", ev.Key, "alpha")
 	assert(ev.Val == 42, "evicted val: got %d, want 42", ev.Val)
 }
 
 // TestEvict_Sequential verifies that overflowing the cache by N items
-// produces exactly N eviction events with correct content.
+// produces exactly N eviction results with correct content.
 func TestEvict_Sequential(t *testing.T) {
 	assert := newAsserter(t)
 
 	const cap = 4
 	const overflow = 6
-	s := sieve.New[int, int](cap, sieve.WithOnEvict(overflow+cap))
-	defer s.Close()
+	s := sieve.New[int, int](cap)
 
-	// Fill to capacity
+	// Fill to capacity — no evictions
 	for i := 0; i < cap; i++ {
-		s.Add(i, i*1000)
+		_, r := s.Add(i, i*1000)
+		assert(!r.Evicted(), "no eviction expected while filling, got one at i=%d", i)
 	}
 
 	// Overflow — each add evicts one item
+	evictions := 0
 	for i := cap; i < cap+overflow; i++ {
-		s.Add(i, i*1000)
+		ev, r := s.Add(i, i*1000)
+		assert(r.Evicted(), "expected eviction at i=%d", i)
+		assert(ev.Val == ev.Key*1000, "event %d: key=%d val=%d, want val=%d",
+			evictions, ev.Key, ev.Val, ev.Key*1000)
+		evictions++
 	}
-
-	ch := s.Evictor()
-	received := 0
-	for {
-		select {
-		case ev := <-ch:
-			assert(ev.Val == ev.Key*1000, "event %d: key=%d val=%d, want val=%d",
-				received, ev.Key, ev.Val, ev.Key*1000)
-			received++
-		default:
-			goto done
-		}
-	}
-done:
-	assert(received == overflow, "expected %d eviction events, got %d", overflow, received)
+	assert(evictions == overflow, "expected %d evictions, got %d", overflow, evictions)
 }
 
 // TestEvict_VisitedSkipped verifies that visited items are skipped during
@@ -108,8 +88,7 @@ done:
 func TestEvict_VisitedSkipped(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, string](4, sieve.WithOnEvict(8))
-	defer s.Close()
+	s := sieve.New[int, string](4)
 
 	s.Add(1, "one")
 	s.Add(2, "two")
@@ -124,20 +103,18 @@ func TestEvict_VisitedSkipped(t *testing.T) {
 	s.Get(2)
 	s.Get(3)
 
-	s.Add(5, "five") // should evict key 4 (unvisited)
-
-	ev := <-s.Evictor()
+	ev, r := s.Add(5, "five") // should evict key 4 (unvisited)
+	assert(r.Evicted(), "expected eviction")
 	assert(ev.Key == 4, "evicted key: got %d, want 4", ev.Key)
 	assert(ev.Val == "four", "evicted val: got %q, want %q", ev.Val, "four")
 }
 
-// TestEvict_SieveK verifies eviction notifications work correctly with
+// TestEvict_SieveK verifies eviction results work correctly with
 // SIEVE-k (multi-level visit counters).
 func TestEvict_SieveK(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[string, int](3, sieve.WithVisitClamp(3), sieve.WithOnEvict(16))
-	defer s.Close()
+	s := sieve.New[string, int](3, sieve.WithVisitClamp(3))
 
 	s.Add("A", 1)
 	s.Add("B", 2)
@@ -152,137 +129,85 @@ func TestEvict_SieveK(t *testing.T) {
 	s.Get("B")
 
 	// C has no accesses → evicted first
-	s.Add("D", 4)
-
-	ev := <-s.Evictor()
+	ev, r := s.Add("D", 4)
+	assert(r.Evicted(), "expected eviction")
 	assert(ev.Key == "C", "evicted key: got %q, want %q", ev.Key, "C")
 	assert(ev.Val == 3, "evicted val: got %d, want 3", ev.Val)
 }
 
-// TestEvict_NoBelowCapacity verifies that no eviction events are produced
+// TestEvict_NoBelowCapacity verifies that no eviction occurs
 // when the cache is not yet full.
 func TestEvict_NoBelowCapacity(t *testing.T) {
-	s := sieve.New[int, int](8, sieve.WithOnEvict(8))
-	defer s.Close()
+	s := sieve.New[int, int](8)
 
 	for i := 0; i < 8; i++ {
-		s.Add(i, i)
-	}
-
-	ch := s.Evictor()
-	select {
-	case ev := <-ch:
-		t.Fatalf("unexpected eviction event: key=%d val=%d", ev.Key, ev.Val)
-	default:
-		// Good — no events
+		_, r := s.Add(i, i)
+		if r.Evicted() {
+			t.Fatalf("unexpected eviction at i=%d", i)
+		}
 	}
 }
 
-// TestEvict_DeleteNoEvent verifies that Delete does not produce
-// eviction events (only automatic evictions do).
-func TestEvict_DeleteNoEvent(t *testing.T) {
-	s := sieve.New[int, int](4, sieve.WithOnEvict(8))
-	defer s.Close()
+// TestEvict_HitNoEviction verifies that updating an existing key
+// never triggers eviction (CacheHit and CacheEvict are mutually exclusive).
+func TestEvict_HitNoEviction(t *testing.T) {
+	assert := newAsserter(t)
 
-	s.Add(1, 10)
-	s.Add(2, 20)
-	s.Delete(1)
+	s := sieve.New[int, int](4)
 
-	ch := s.Evictor()
-	select {
-	case ev := <-ch:
-		t.Fatalf("Delete should not produce eviction event: key=%d val=%d", ev.Key, ev.Val)
-	default:
-		// Good
+	// Fill to capacity
+	for i := 0; i < 4; i++ {
+		s.Add(i, i*10)
+	}
+
+	// Update existing keys — should be CacheHit, never CacheEvict
+	for i := 0; i < 4; i++ {
+		_, r := s.Add(i, i*100)
+		assert(r.Hit(), "expected hit for existing key %d", i)
+		assert(!r.Evicted(), "update should not trigger eviction for key %d", i)
 	}
 }
 
-// TestEvict_PurgeNoEvent verifies that Purge does not produce eviction events.
-func TestEvict_PurgeNoEvent(t *testing.T) {
-	s := sieve.New[int, int](4, sieve.WithOnEvict(8))
-	defer s.Close()
+// TestEvict_Probe verifies that Probe triggers eviction when
+// inserting a new key into a full cache.
+func TestEvict_Probe(t *testing.T) {
+	assert := newAsserter(t)
+
+	s := sieve.New[int, int](3)
+
+	s.Add(1, 100)
+	s.Add(2, 200)
+	s.Add(3, 300)
+
+	// Probe with a new key triggers eviction
+	v, ev, r := s.Probe(4, 400)
+	assert(!r.Hit(), "Probe should return miss for new key")
+	assert(r.Evicted(), "Probe should trigger eviction")
+	assert(v == 400, "Probe should return the inserted value, got %d", v)
+	// Key 1 is the tail (first inserted, unvisited) → evicted
+	assert(ev.Key == 1, "evicted key: got %d, want 1", ev.Key)
+	assert(ev.Val == 100, "evicted val: got %d, want 100", ev.Val)
+}
+
+// TestEvict_ProbeHitNoEviction verifies that Probe on an existing key
+// returns CacheHit with no eviction.
+func TestEvict_ProbeHitNoEviction(t *testing.T) {
+	assert := newAsserter(t)
+
+	s := sieve.New[int, int](4)
 
 	for i := 0; i < 4; i++ {
 		s.Add(i, i*10)
 	}
-	s.Purge()
 
-	ch := s.Evictor()
-	select {
-	case ev := <-ch:
-		t.Fatalf("Purge should not produce eviction event: key=%d val=%d", ev.Key, ev.Val)
-	default:
-		// Good
-	}
+	v, _, r := s.Probe(2, 999)
+	assert(r.Hit(), "expected hit on existing key")
+	assert(!r.Evicted(), "hit should not trigger eviction")
+	assert(v == 20, "expected cached value 20, got %d", v)
 }
 
-// TestEvict_NilWithoutOption verifies that Evictor() returns nil when
-// the cache is created without WithOnEvict.
-func TestEvict_NilWithoutOption(t *testing.T) {
-	s := sieve.New[int, int](4)
-	if s.Evictor() != nil {
-		t.Fatal("Evictor() should return nil without WithOnEvict")
-	}
-}
-
-// TestEvict_Close verifies that Close() closes the eviction channel,
-// allowing range loops to exit.
-func TestEvict_Close(t *testing.T) {
-	s := sieve.New[int, int](4, sieve.WithOnEvict(8))
-
-	s.Add(1, 10)
-	s.Add(2, 20)
-	s.Add(3, 30)
-	s.Add(4, 40)
-	s.Add(5, 50) // evicts 1
-
-	// Drain any pending events
-	ch := s.Evictor()
-drain:
-	for {
-		select {
-		case <-ch:
-		default:
-			break drain
-		}
-	}
-
-	done := make(chan bool, 1)
-	go func() {
-		// range should exit when channel is closed
-		for range ch {
-		}
-		done <- true
-	}()
-
-	s.Close()
-
-	select {
-	case <-done:
-		// Good — range exited after Close
-	case <-time.After(time.Second):
-		t.Fatal("range over Evictor() did not exit after Close")
-	}
-}
-
-// TestEvict_UseAfterClose verifies that calling Add after Close panics.
-func TestEvict_UseAfterClose(t *testing.T) {
-	s := sieve.New[int, int](4, sieve.WithOnEvict(8))
-	s.Add(1, 10)
-	s.Close()
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on Add after Close")
-		}
-	}()
-
-	s.Add(2, 20)
-}
-
-// TestEvict_Concurrent verifies that all eviction events are received
-// when multiple goroutines add items concurrently. Each goroutine uses
-// a non-overlapping key range so every Add is a new insertion.
+// TestEvict_Concurrent verifies that eviction results are consistent
+// when multiple goroutines add items concurrently.
 func TestEvict_Concurrent(t *testing.T) {
 	assert := newAsserter(t)
 
@@ -291,11 +216,11 @@ func TestEvict_Concurrent(t *testing.T) {
 		nWorkers  = 10
 		keysPerW  = 100
 	)
-	totalKeys := nWorkers * keysPerW
-	expectedEvictions := totalKeys - cacheSize
 
-	s := sieve.New[int, int](cacheSize, sieve.WithOnEvict(expectedEvictions+128))
-	defer s.Close()
+	s := sieve.New[int, int](cacheSize)
+
+	var mu sync.Mutex
+	var evictions []sieve.Evicted[int, int]
 
 	var wg sync.WaitGroup
 	wg.Add(nWorkers)
@@ -305,97 +230,58 @@ func TestEvict_Concurrent(t *testing.T) {
 			base := id * keysPerW
 			for i := 0; i < keysPerW; i++ {
 				key := base + i
-				s.Add(key, key*1000)
+				ev, r := s.Add(key, key*1000)
+				if r.Evicted() {
+					mu.Lock()
+					evictions = append(evictions, ev)
+					mu.Unlock()
+				}
 			}
 		}(g)
 	}
 	wg.Wait()
 
-	ch := s.Evictor()
-	count := 0
-	for {
-		select {
-		case ev := <-ch:
-			assert(ev.Val == ev.Key*1000,
-				"event %d: key=%d val=%d, want val=%d", count, ev.Key, ev.Val, ev.Key*1000)
-			count++
-		default:
-			goto done
-		}
+	totalKeys := nWorkers * keysPerW
+	expectedEvictions := totalKeys - cacheSize
+	assert(len(evictions) == expectedEvictions,
+		"expected %d eviction events, got %d", expectedEvictions, len(evictions))
+
+	// Verify all evicted values are consistent
+	for i, ev := range evictions {
+		assert(ev.Val == ev.Key*1000,
+			"event %d: key=%d val=%d, want val=%d", i, ev.Key, ev.Val, ev.Key*1000)
 	}
-done:
-	assert(count == expectedEvictions,
-		"expected %d eviction events, got %d", expectedEvictions, count)
 }
 
-// TestEvict_Backpressure verifies that Add blocks (rather than dropping)
-// when the eviction channel buffer is full.
-func TestEvict_Backpressure(t *testing.T) {
-	s := sieve.New[int, int](2, sieve.WithOnEvict(1))
-	defer s.Close()
+// TestEvict_CacheResultBitmask verifies the CacheResult bitmask values.
+func TestEvict_CacheResultBitmask(t *testing.T) {
+	s := sieve.New[int, int](2)
 
-	s.Add(1, 100)
-	s.Add(2, 200)
-
-	// This Add triggers eviction; the single-slot buffer absorbs it.
-	s.Add(3, 300)
-
-	// Buffer is now full. Next eviction-triggering Add should block.
-	done := make(chan bool, 1)
-	go func() {
-		s.Add(4, 400) // triggers eviction, but channel full → blocks
-		done <- true
-	}()
-
-	// Give the goroutine time to start and block
-	runtime.Gosched()
-	time.Sleep(50 * time.Millisecond)
-
-	select {
-	case <-done:
-		t.Fatal("Add should have blocked (eviction channel buffer full)")
-	default:
-		// Good — Add is blocked
+	// Case 1: new add, no eviction → result is 0
+	_, r := s.Add(1, 10)
+	if r != 0 {
+		t.Fatalf("new add: expected result 0, got %d", r)
+	}
+	if r.Hit() || r.Evicted() {
+		t.Fatal("new add: neither Hit nor Evicted should be set")
 	}
 
-	// Drain one event — this should unblock the goroutine
-	<-s.Evictor()
-
-	select {
-	case <-done:
-		// Good — Add unblocked after drain
-	case <-time.After(time.Second):
-		t.Fatal("Add should have unblocked after draining eviction channel")
+	// Case 2: update existing → CacheHit
+	_, r = s.Add(1, 20)
+	if !r.Hit() {
+		t.Fatal("update: expected CacheHit")
+	}
+	if r.Evicted() {
+		t.Fatal("update: CacheEvict should not be set")
 	}
 
-	// Drain the second event
-	<-s.Evictor()
-}
-
-// TestEvict_Probe verifies that Probe triggers eviction events when
-// inserting a new key into a full cache.
-func TestEvict_Probe(t *testing.T) {
-	assert := newAsserter(t)
-
-	s := sieve.New[int, int](3, sieve.WithOnEvict(8))
-	defer s.Close()
-
-	s.Add(1, 100)
-	s.Add(2, 200)
-	s.Add(3, 300)
-
-	// Probe with a new key triggers eviction
-	v, existed := s.Probe(4, 400)
-	assert(!existed, "Probe should return false for new key")
-	assert(v == 400, "Probe should return the inserted value, got %d", v)
-
-	ch := s.Evictor()
-	select {
-	case ev := <-ch:
-		// Key 1 is the tail (first inserted, unvisited) → evicted
-		assert(ev.Key == 1, "evicted key: got %d, want 1", ev.Key)
-		assert(ev.Val == 100, "evicted val: got %d, want 100", ev.Val)
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for eviction event from Probe")
+	// Case 3: new add with eviction → CacheEvict
+	s.Add(2, 20)
+	_, r = s.Add(3, 30) // full cache, triggers eviction
+	if r.Hit() {
+		t.Fatal("eviction: CacheHit should not be set")
+	}
+	if !r.Evicted() {
+		t.Fatal("eviction: expected CacheEvict")
 	}
 }

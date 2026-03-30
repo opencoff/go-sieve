@@ -15,7 +15,6 @@
 package sieve_test
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -32,23 +31,23 @@ func TestBasic(t *testing.T) {
 	assert := newAsserter(t)
 
 	s := sieve.New[int, string](4)
-	ok := s.Add(1, "hello")
-	assert(!ok, "empty cache: expected clean add of 1")
+	_, r := s.Add(1, "hello")
+	assert(!r.Hit(), "empty cache: expected clean add of 1")
 
-	ok = s.Add(2, "foo")
-	assert(!ok, "empty cache: expected clean add of 2")
-	ok = s.Add(3, "bar")
-	assert(!ok, "empty cache: expected clean add of 3")
-	ok = s.Add(4, "gah")
-	assert(!ok, "empty cache: expected clean add of 4")
+	_, r = s.Add(2, "foo")
+	assert(!r.Hit(), "empty cache: expected clean add of 2")
+	_, r = s.Add(3, "bar")
+	assert(!r.Hit(), "empty cache: expected clean add of 3")
+	_, r = s.Add(4, "gah")
+	assert(!r.Hit(), "empty cache: expected clean add of 4")
 
-	ok = s.Add(1, "world")
-	assert(ok, "key 1: expected to replace")
+	_, r = s.Add(1, "world")
+	assert(r.Hit(), "key 1: expected to replace")
 
-	ok = s.Add(5, "boo")
-	assert(!ok, "adding 5: expected to be new add")
+	_, r = s.Add(5, "boo")
+	assert(!r.Hit(), "adding 5: expected to be new add")
 
-	_, ok = s.Get(2)
+	_, ok := s.Get(2)
 	assert(!ok, "evict: expected 2 to be evicted")
 
 }
@@ -61,8 +60,8 @@ func TestEvictAll(t *testing.T) {
 
 	for i := 0; i < size*2; i++ {
 		val := fmt.Sprintf("val %d", i)
-		_, ok := s.Probe(i, val)
-		assert(!ok, "%d: exp new add", i)
+		_, _, r := s.Probe(i, val)
+		assert(!r.Hit(), "%d: exp new add", i)
 	}
 
 	// the first half should've been all evicted
@@ -165,7 +164,7 @@ func TestSpeed(t *testing.T) {
 						miss++
 					}
 				}
-				d := time.Now().Sub(st)
+				d := time.Since(st)
 				ch <- timing{
 					typ:  "get",
 					d:    d,
@@ -181,13 +180,13 @@ func TestSpeed(t *testing.T) {
 				st := time.Now()
 				for _, x := range vals {
 					v := x % 16384
-					if _, ok := s.Probe(v, v); ok {
+					if _, _, r := s.Probe(v, v); r.Hit() {
 						hit++
 					} else {
 						miss++
 					}
 				}
-				d := time.Now().Sub(st)
+				d := time.Since(st)
 				ch <- timing{
 					typ:  "probe",
 					d:    d,
@@ -232,13 +231,6 @@ func TestSpeed(t *testing.T) {
 	}
 }
 
-func dup[T ~[]E, E any](v T) []E {
-	n := len(v)
-	g := make([]E, n)
-	copy(g, v)
-	return g
-}
-
 func shuffle[T ~[]E, E any](v T) []E {
 	i := len(v)
 	for i--; i >= 0; i-- {
@@ -258,17 +250,9 @@ func hitRatio(hit, miss uint64) string {
 }
 
 func randints(sz int) []uint64 {
-	var b [8]byte
-
 	v := make([]uint64, sz)
-
-	for i := 0; i < sz; i++ {
-		n, err := rand.Read(b[:])
-		if n != 8 || err != nil {
-			panic("can't generate rand")
-		}
-
-		v[i] = binary.BigEndian.Uint64(b[:])
+	for i := range v {
+		v[i] = rand.Uint64()
 	}
 	return v
 }

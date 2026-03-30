@@ -50,7 +50,7 @@ func newSlotState(capacity int, k int) slotState {
 	if k < 1 {
 		k = 1
 	}
-	vb := uint(bits.Len(uint(k))) // k=1→1, k=2..3→2, k=4..7→3
+	vb := uint(bits.Len(uint(k))) // #nosec G115 — k is a small positive int (clamped ≥1 above); k=1→1, k=2..3→2, k=4..7→3
 	return slotState{
 		words:    make([]uint64, capacity),
 		maxVisit: uint64(k),

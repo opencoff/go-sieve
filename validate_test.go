@@ -95,8 +95,8 @@ func TestInvariants(t *testing.T) {
 
 	// Update existing keys
 	for i := cap; i < cap*2; i++ {
-		ok := s.Add(i, i*100)
-		if !ok {
+		_, r := s.Add(i, i*100)
+		if !r.Hit() {
 			t.Fatalf("Add(%d) update: expected true (key exists)", i)
 		}
 		validate(t, s, fmt.Sprintf("after update Add(%d)", i))
@@ -125,8 +125,8 @@ func TestInvariants(t *testing.T) {
 
 	// Probe existing and non-existing
 	for i := cap + 4; i < cap*2; i++ {
-		v, ok := s.Probe(i, -1)
-		if !ok {
+		v, _, r := s.Probe(i, -1)
+		if !r.Hit() {
 			t.Fatalf("Probe(%d): expected hit", i)
 		}
 		if v != i*100 {
@@ -138,8 +138,8 @@ func TestInvariants(t *testing.T) {
 	// Probe new keys to fill back up
 	for i := 0; i < 4; i++ {
 		key := cap*2 + i
-		v, ok := s.Probe(key, key*10)
-		if ok {
+		v, _, r := s.Probe(key, key*10)
+		if r.Hit() {
 			t.Fatalf("Probe(%d): expected miss", key)
 		}
 		if v != key*10 {

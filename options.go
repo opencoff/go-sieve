@@ -16,8 +16,7 @@ package sieve
 
 // config holds internal configuration built from Options.
 type config struct {
-	k            int // visited counter saturation; 1 = classic SIEVE
-	evictBufSize int // eviction channel buffer; 0 = disabled
+	k int // visited counter saturation; 1 = classic SIEVE
 }
 
 // Option configures a Sieve cache at construction time.
@@ -30,19 +29,4 @@ type Option func(*config)
 // passes. Values less than 1 are clamped to 1.
 func WithVisitClamp(k int) Option {
 	return func(c *config) { c.k = k }
-}
-
-// WithOnEvict enables eviction notifications. When an entry is evicted,
-// its key and value are sent on a buffered channel of size bufSize.
-// Use Evictor() to obtain the receive end of the channel.
-//
-// The send is blocking but occurs outside the cache mutex, so the cache
-// is not blocked while the consumer processes events. If the consumer
-// cannot keep up, the sending goroutine (the caller of Add or Probe)
-// blocks until space is available - this provides natural backpressure.
-//
-// The caller must call Close() when done with the cache to close the
-// channel and prevent goroutine leaks in consumers.
-func WithOnEvict(bufSize int) Option {
-	return func(c *config) { c.evictBufSize = bufSize }
 }

@@ -163,9 +163,9 @@ func TestInternalInvariants(t *testing.T) {
 	// Probe hit
 	for i := 0; i < 4; i++ {
 		key := cap*2 + i
-		v, ok := s.Probe(key, -1)
-		if !ok || v != key*10 {
-			t.Fatalf("Probe(%d) hit = (%d, %v), want (%d, true)", key, v, ok, key*10)
+		v, _, r := s.Probe(key, -1)
+		if !r.Hit() || v != key*10 {
+			t.Fatalf("Probe(%d) hit = (%d, %v), want (%d, true)", key, v, r.Hit(), key*10)
 		}
 	}
 
@@ -210,13 +210,13 @@ func TestInternalInvariants(t *testing.T) {
 // all visited bits, wrap around, and evict the first node found unvisited.
 //
 // We trace the eviction deterministically:
-// - List after fill: sentinel → 7 → 6 → 5 → 4 → 3 → 2 → 1 → 0 → sentinel
-//   (each Add inserts at head, so key 7 is head, key 0 is tail)
-// - hand == sentinelIdx (unset), so eviction starts from tail (key 0)
-// - All nodes visited → hand scans backward clearing bits:
-//   0(clear)→7(clear)→6(clear)→5(clear)→4(clear)→3(clear)→2(clear)→1(clear)
-//   → wraps to tail → 0(now unvisited) → evict 0.
-// - Result: key 0 evicted, keys 1-7 + 8 present, all visited bits cleared.
+//   - List after fill: sentinel → 7 → 6 → 5 → 4 → 3 → 2 → 1 → 0 → sentinel
+//     (each Add inserts at head, so key 7 is head, key 0 is tail)
+//   - hand == sentinelIdx (unset), so eviction starts from tail (key 0)
+//   - All nodes visited → hand scans backward clearing bits:
+//     0(clear)→7(clear)→6(clear)→5(clear)→4(clear)→3(clear)→2(clear)→1(clear)
+//     → wraps to tail → 0(now unvisited) → evict 0.
+//   - Result: key 0 evicted, keys 1-7 + 8 present, all visited bits cleared.
 func TestInternal_EvictionAllVisited(t *testing.T) {
 	const cap = 8
 	s := New[int, int](cap)

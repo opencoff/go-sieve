@@ -64,7 +64,7 @@ func initAllocator[K comparable, V any](a *allocator[K, V], capacity int) {
 	a.nodes = make([]node[K, V], capacity+1) // +1 for sentinel
 	a.cur = 1                                // skip sentinel at index 0
 	a.next = nullIdx
-	a.cap = int32(capacity)
+	a.cap = int32(capacity) // #nosec G115 — capacity is user-provided positive int, bounded well below int32 max
 	// Initialize sentinel: circular self-links
 	a.nodes[sentinelIdx].next = sentinelIdx
 	a.nodes[sentinelIdx].prev = sentinelIdx
@@ -118,6 +118,29 @@ func (a *allocator[K, V]) capacity() int32 {
 	return a.cap
 }
 
+// Evicted represents a key-value pair that was evicted from the cache.
+type Evicted[K comparable, V any] struct {
+	Key K
+	Val V
+}
+
+// CacheResult is a bitmask indicating what happened during an Add or Probe operation.
+type CacheResult uint8
+
+const (
+	// CacheHit indicates the key was already present in the cache.
+	CacheHit CacheResult = 1 << iota
+
+	// CacheEvict indicates an entry was evicted to make room for the new key.
+	CacheEvict
+)
+
+// Hit reports whether the key was already present in the cache.
+func (r CacheResult) Hit() bool { return r&CacheHit != 0 }
+
+// Evicted reports whether an entry was evicted during the operation.
+func (r CacheResult) Evicted() bool { return r&CacheEvict != 0 }
+
 // Sieve represents a cache mapping the key of type 'K' with
 // a value of type 'V'. The type 'K' must implement the
 // comparable trait. An instance of Sieve has a fixed max capacity;
@@ -134,32 +157,23 @@ type Sieve[K comparable, V any] struct {
 }
 
 // New creates a new cache of size 'capacity' mapping key 'K' to value 'V'.
-// This uses classic SIEVE with a single visited bit (k=1).
-func New[K comparable, V any](capacity int) *Sieve[K, V] {
+// Without options, this creates a classic SIEVE with a single visited bit (k=1).
+// Use WithVisitClamp to create a SIEVE-k cache.
+func New[K comparable, V any](capacity int, opts ...Option) *Sieve[K, V] {
+	cfg := config{k: 1}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	if cfg.k < 1 {
+		cfg.k = 1
+	}
+
 	// +1 for sentinel in slot array to keep indexing aligned
 	total := capacity + 1
 	s := &Sieve[K, V]{
 		cache: xsync.NewMapOf[K, int32](),
 		hand:  sentinelIdx,
-		slots: newSlotState(total, 1),
-	}
-	initAllocator(&s.allocator, capacity)
-	return s
-}
-
-// NewWithVisits creates a SIEVE-k cache where each entry can accumulate
-// up to k visit counts before being considered "maximally visited".
-// k=1 is equivalent to classic SIEVE. k>1 uses multi-bit saturating
-// counters: an item accessed k+1 times survives k eviction passes.
-func NewWithVisits[K comparable, V any](capacity int, k int) *Sieve[K, V] {
-	if k < 1 {
-		k = 1
-	}
-	total := capacity + 1
-	s := &Sieve[K, V]{
-		cache: xsync.NewMapOf[K, int32](),
-		hand:  sentinelIdx,
-		slots: newSlotState(total, k),
+		slots: newSlotState(total, cfg.k),
 	}
 	initAllocator(&s.allocator, capacity)
 	return s
@@ -170,86 +184,105 @@ func NewWithVisits[K comparable, V any](capacity int, k int) *Sieve[K, V] {
 // The zero value for 'V' is returned when key is not in the cache.
 func (s *Sieve[K, V]) Get(key K) (V, bool) {
 	if idx, ok := s.cache.Load(key); ok {
-		s.slots.LockAndMark(idx)
+		slots := &s.slots
+		slots.LockAndMark(idx)
 		n := &s.allocator.nodes[idx]
 		if n.key == key {
 			val := n.val
-			s.slots.Unlock(idx)
+			slots.Unlock(idx)
 			return val, true
 		}
 		// Stale idx: node was evicted and reused for a different key.
-		s.slots.Unlock(idx)
+		slots.Unlock(idx)
 	}
 
 	var x V
 	return x, false
 }
 
-// Add adds a new element to the cache or overwrite one if it exists
-// Return true if we replaced, false otherwise
-func (s *Sieve[K, V]) Add(key K, val V) bool {
+// Add adds a new element to the cache or overwrites one if it exists.
+// Returns the evicted entry (if any) and a CacheResult bitmask:
+//   - CacheHit is set when the key was already present (value updated).
+//   - CacheEvict is set when an entry was evicted to make room.
+//
+// CacheHit and CacheEvict are mutually exclusive: updating an existing
+// key never triggers eviction.
+func (s *Sieve[K, V]) Add(key K, val V) (Evicted[K, V], CacheResult) {
 	nodes := s.allocator.nodes
+	slots := &s.slots
 
 	// Fast path: key exists, just update
 	if idx, ok := s.cache.Load(key); ok {
 		n := &nodes[idx]
-		s.slots.LockAndMark(idx)
+		slots.LockAndMark(idx)
 		if n.key == key {
 			n.val = val
-			s.slots.Unlock(idx)
-			return true
+			slots.Unlock(idx)
+			return Evicted[K, V]{}, CacheHit
 		}
 		// Stale idx: node was evicted and reused. Fall through to slow path.
-		s.slots.Unlock(idx)
+		slots.Unlock(idx)
 	}
 
-	s.mu.Lock()
+	mu := &s.mu
+	mu.Lock()
 	// Re-check under lock to prevent double-insert (TOCTOU fix)
 	if idx, ok := s.cache.Load(key); ok {
-		s.slots.LockAndMark(idx)
+		slots.LockAndMark(idx)
 		nodes[idx].val = val
-		s.slots.Unlock(idx)
-		s.mu.Unlock()
-		return true
+		slots.Unlock(idx)
+		mu.Unlock()
+		return Evicted[K, V]{}, CacheHit
 	}
-	s.add(key, val)
-	s.mu.Unlock()
-	return false
+	ev, evicted := s.add(key, val)
+	mu.Unlock()
+
+	if evicted {
+		return ev, CacheEvict
+	}
+	return Evicted[K, V]{}, 0
 }
 
 // Probe adds <key, val> if not present in the cache.
 // Returns:
-//
-//	<cached-val, true> when key is present in the cache
-//	<val, false> when key is not present in the cache
-func (s *Sieve[K, V]) Probe(key K, val V) (V, bool) {
+//   - The cached value (on hit) or val (on miss)
+//   - The evicted entry, if any
+//   - A CacheResult bitmask: CacheHit if key was present, CacheEvict if an
+//     entry was evicted. CacheHit and CacheEvict are mutually exclusive.
+func (s *Sieve[K, V]) Probe(key K, val V) (V, Evicted[K, V], CacheResult) {
 	nodes := s.allocator.nodes
+	slots := &s.slots
 
 	// Fast path: key exists
 	if idx, ok := s.cache.Load(key); ok {
 		n := &nodes[idx]
-		s.slots.LockAndMark(idx)
+		slots.LockAndMark(idx)
 		if n.key == key {
 			v := n.val
-			s.slots.Unlock(idx)
-			return v, true
+			slots.Unlock(idx)
+			return v, Evicted[K, V]{}, CacheHit
 		}
 		// Stale idx: node was evicted and reused. Fall through to slow path.
-		s.slots.Unlock(idx)
+		slots.Unlock(idx)
 	}
 
-	s.mu.Lock()
+	mu := &s.mu
+	mu.Lock()
 	// Re-check under lock to prevent double-insert (TOCTOU fix)
 	if idx, ok := s.cache.Load(key); ok {
-		s.slots.LockAndMark(idx)
+		slots.LockAndMark(idx)
 		v := nodes[idx].val
-		s.slots.Unlock(idx)
-		s.mu.Unlock()
-		return v, true
+		slots.Unlock(idx)
+		mu.Unlock()
+		return v, Evicted[K, V]{}, CacheHit
 	}
-	s.add(key, val)
-	s.mu.Unlock()
-	return val, false
+	ev, evicted := s.add(key, val)
+	mu.Unlock()
+
+	if evicted {
+		return val, ev, CacheEvict
+	}
+	return val, Evicted[K, V]{}, 0
 }
 
 // Delete deletes the named key from the cache
@@ -324,12 +357,16 @@ func (s *Sieve[K, V]) Dump() string {
 
 // -- internal methods --
 
-// add a new tuple to the cache and evict as necessary
-// caller must hold lock.
-func (s *Sieve[K, V]) add(key K, val V) {
+// add a new tuple to the cache and evict as necessary.
+// Returns the evicted entry (if any) so the caller can return it.
+// Caller must hold lock.
+func (s *Sieve[K, V]) add(key K, val V) (Evicted[K, V], bool) {
+	var ev Evicted[K, V]
+	var evicted bool
+
 	// cache miss; we evict and find a new node
-	if int32(s.size) == s.allocator.capacity() {
-		s.evict()
+	if int32(s.size) == s.allocator.capacity() { // #nosec G115 — size never exceeds capacity (int32)
+		ev, evicted = s.evict()
 	}
 
 	idx := s.newNode(key, val)
@@ -353,11 +390,12 @@ func (s *Sieve[K, V]) add(key K, val V) {
 	sen.next, nodes[head].prev = idx, idx
 
 	s.size += 1
+	return ev, evicted
 }
 
-// evict an item from the cache.
-// NB: Caller must hold the lock
-func (s *Sieve[K, V]) evict() {
+// evict removes one item from the cache and returns its key/value.
+// Caller must hold the lock.
+func (s *Sieve[K, V]) evict() (Evicted[K, V], bool) {
 	hand := s.hand
 	nodes := s.allocator.nodes
 	sen := &nodes[sentinelIdx]
@@ -371,11 +409,9 @@ func (s *Sieve[K, V]) evict() {
 		n := &nodes[hand]
 		if !s.slots.IsVisited(hand) {
 			s.cache.Delete(n.key)
-			// Save prev before remove() clobbers next for freelist
-			prev := n.prev
-			s.remove(hand)
-			s.hand = prev
-			return
+			s.hand = n.prev
+			ev := s.remove(hand)
+			return ev, true
 		}
 		s.slots.Clear(hand)
 		hand = n.prev
@@ -385,13 +421,17 @@ func (s *Sieve[K, V]) evict() {
 		}
 	}
 	s.hand = hand
+	var ev Evicted[K, V]
+	return ev, false
 }
 
 // remove removes the node at idx from the linked list and frees it.
-// Caller must hold s.mu. Key/val are zeroed under the slot lock to
-// serialize with concurrent fast-path reads and to release GC references.
-// Branch-free: sentinel eliminates null checks.
-func (s *Sieve[K, V]) remove(idx int32) {
+// It captures and returns the node's key/val before zeroing them,
+// so callers (evict) can return eviction info.
+// Caller must hold s.mu. Key/val are captured and zeroed under the
+// slot lock to serialize with concurrent fast-path reads and to
+// release GC references. Branch-free: sentinel eliminates null checks.
+func (s *Sieve[K, V]) remove(idx int32) Evicted[K, V] {
 	s.size -= 1
 
 	nodes := s.allocator.nodes
@@ -401,9 +441,11 @@ func (s *Sieve[K, V]) remove(idx int32) {
 	nodes[n.prev].next = n.next
 	nodes[n.next].prev = n.prev
 
-	// Zero key/val under slot lock to synchronize with fast-path reads
+	// Capture key/val and zero them under the slot lock to serialize
+	// with concurrent fast-path reads (which write val under slot lock)
 	// and allow GC to collect pointed-to objects.
 	s.slots.Lock(idx)
+	ev := Evicted[K, V]{Key: n.key, Val: n.val}
 	var zk K
 	var zv V
 	n.key = zk
@@ -412,6 +454,7 @@ func (s *Sieve[K, V]) remove(idx int32) {
 
 	// Return the node to the allocator's freelist
 	s.allocator.free(idx)
+	return ev
 }
 
 // newNode allocates a node and initializes it with key and val.
