@@ -30,7 +30,7 @@ import (
 func TestBasic(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, string](4)
+	s := sieve.Must(sieve.New[int, string](4))
 	_, r := s.Add(1, "hello")
 	assert(!r.Hit(), "empty cache: expected clean add of 1")
 
@@ -56,7 +56,7 @@ func TestEvictAll(t *testing.T) {
 	assert := newAsserter(t)
 
 	size := 128
-	s := sieve.New[int, string](size)
+	s := sieve.Must(sieve.New[int, string](size))
 
 	for i := 0; i < size*2; i++ {
 		val := fmt.Sprintf("val %d", i)
@@ -81,7 +81,7 @@ func TestAllOps(t *testing.T) {
 	size := 8192
 	vals := randints(size * 3)
 
-	s := sieve.New[uint64, uint64](size)
+	s := sieve.Must(sieve.New[uint64, uint64](size))
 
 	for i := range vals {
 		k := vals[i]
@@ -140,7 +140,7 @@ func TestSpeed(t *testing.T) {
 		var wg sync.WaitGroup
 
 		wg.Add(ncpu)
-		s := sieve.New[uint64, uint64](size)
+		s := sieve.Must(sieve.New[uint64, uint64](size))
 
 		var bar barrier
 

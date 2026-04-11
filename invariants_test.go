@@ -29,6 +29,7 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 
 	nodes := s.allocator.nodes
 	cap := s.allocator.cap
+	size := int(s.size.Load())
 
 	// 1. Forward walk: sentinel.next → ... → sentinel
 	fwdCount := 0
@@ -47,8 +48,8 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 		}
 		seen[idx] = true
 	}
-	if fwdCount != s.size {
-		t.Fatalf("%s: forward walk count %d != size %d", context, fwdCount, s.size)
+	if fwdCount != size {
+		t.Fatalf("%s: forward walk count %d != size %d", context, fwdCount, size)
 	}
 
 	// 2. Reverse walk: sentinel.prev → ... → sentinel
@@ -59,8 +60,8 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 			t.Fatalf("%s: reverse walk exceeded capacity — cycle detected", context)
 		}
 	}
-	if revCount != s.size {
-		t.Fatalf("%s: reverse walk count %d != size %d (fwd was %d)", context, revCount, s.size, fwdCount)
+	if revCount != size {
+		t.Fatalf("%s: reverse walk count %d != size %d (fwd was %d)", context, revCount, size, fwdCount)
 	}
 
 	// 3a. Every list node's key exists in the map with the correct index
@@ -81,8 +82,8 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 		mapSize++
 		return true
 	})
-	if mapSize != s.size {
-		t.Fatalf("%s: map size %d != list size %d", context, mapSize, s.size)
+	if mapSize != size {
+		t.Fatalf("%s: map size %d != list size %d", context, mapSize, size)
 	}
 
 	// 4. Hand validity: must be sentinelIdx or a valid slot index (1..cap).
@@ -104,9 +105,9 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 		}
 	}
 	bumpAllocated := int(s.allocator.cur - 1)
-	if s.size+freelistLen != bumpAllocated {
+	if size+freelistLen != bumpAllocated {
 		t.Fatalf("%s: accounting: size(%d) + freelist(%d) = %d, want bump_allocated(%d)",
-			context, s.size, freelistLen, s.size+freelistLen, bumpAllocated)
+			context, size, freelistLen, size+freelistLen, bumpAllocated)
 	}
 }
 
@@ -117,7 +118,7 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 // TestInternalInvariants mirrors TestInvariants but uses the deep checker.
 func TestInternalInvariants(t *testing.T) {
 	const cap = 8
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 	checkInvariants(t, s, "empty cache")
 
 	// Fill to capacity
@@ -175,8 +176,8 @@ func TestInternalInvariants(t *testing.T) {
 
 	// 7. Post-Purge state
 	s.mu.Lock()
-	if s.size != 0 {
-		t.Fatalf("post-Purge: size=%d, want 0", s.size)
+	if sz := s.size.Load(); sz != 0 {
+		t.Fatalf("post-Purge: size=%d, want 0", sz)
 	}
 	if s.hand != sentinelIdx {
 		t.Fatalf("post-Purge: hand=%d, want sentinelIdx", s.hand)
@@ -219,7 +220,7 @@ func TestInternalInvariants(t *testing.T) {
 //   - Result: key 0 evicted, keys 1-7 + 8 present, all visited bits cleared.
 func TestInternal_EvictionAllVisited(t *testing.T) {
 	const cap = 8
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 
 	// Fill: keys 0..7
 	for i := 0; i < cap; i++ {
@@ -285,7 +286,7 @@ func TestInternal_EvictionAllVisited(t *testing.T) {
 // eviction path works across multiple consecutive evictions.
 func TestInternal_EvictionAllVisited_Repeated(t *testing.T) {
 	const cap = 16
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 
 	for round := 0; round < 5; round++ {
 		// Fill cache
@@ -321,7 +322,7 @@ func TestInternal_EvictionAllVisited_Repeated(t *testing.T) {
 // points to doesn't corrupt the cache when a subsequent eviction occurs.
 func TestInternal_DeleteThenEvict(t *testing.T) {
 	const cap = 8
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 
 	// Fill: keys 0..7
 	for i := 0; i < cap; i++ {
@@ -367,7 +368,7 @@ func TestInternal_DeleteThenEvict(t *testing.T) {
 // across many add/delete cycles.
 func TestInternal_AllocatorAccounting(t *testing.T) {
 	const cap = 32
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 
 	// Phase 1: fill
 	for i := 0; i < cap; i++ {
@@ -409,8 +410,8 @@ func TestInternal_AllocatorAccounting(t *testing.T) {
 	checkInvariants(t, s, "after delete all")
 
 	s.mu.Lock()
-	if s.size != 0 {
-		t.Fatalf("size=%d after deleting all, want 0", s.size)
+	if sz := s.size.Load(); sz != 0 {
+		t.Fatalf("size=%d after deleting all, want 0", sz)
 	}
 	// All allocated slots should be on freelist
 	freelistLen := 0
@@ -435,7 +436,7 @@ func TestInternal_AllocatorAccounting(t *testing.T) {
 // 4. Verify the old index now holds a different key — the guard catches this
 func TestInternal_StaleIndex_ABA(t *testing.T) {
 	const cap = 4
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 
 	// Fill: keys 10, 20, 30, 40 (non-zero to avoid zero-value ambiguity)
 	for _, k := range []int{10, 20, 30, 40} {
@@ -512,7 +513,7 @@ func TestInternal_StaleIndex_ABA(t *testing.T) {
 // (less frequently to keep test time reasonable).
 func TestInternal_LargerScale(t *testing.T) {
 	const cap = 256
-	s := New[int, int](cap)
+	s := Must(New[int, int](cap))
 
 	// Bulk fill with eviction
 	for i := 0; i < cap*4; i++ {

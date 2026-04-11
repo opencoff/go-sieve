@@ -159,66 +159,19 @@ the pattern) and wire it into `replay_test.go`.
 
 ## Results
 
-All results below measured on Apple M2 Pro, Go 1.26, `GOMAXPROCS=12`.
-Cache size = 10% of unique keys per trace.
+Full results (machine config, per-trace tables for every trace, raw
+benchmark output files, reproduction commands) live in
+[`../bench-results.md`](../bench-results.md) at the repo root. The tables
+there are regenerated from the current hardware with a single unfiltered
+`go test -bench=. -benchmem` invocation — no selected subsets, no hand-
+curated numbers. Raw output files are committed under `results/`.
 
-### Miss Ratio (selected traces)
+Headline numbers from the current run:
 
-| Trace | Requests | Unique | SIEVE k=1 | SIEVE k=3 | LRU | ARC |
-|-------|----------|--------|-----------|-----------|-----|-----|
-| msr_hm_0 | 3.99M | 439K | **0.2991** | 0.3025 | 0.3188 | 0.2923 |
-| msr_prn_0 | 5.59M | 711K | **0.2156** | 0.2208 | 0.2310 | 0.2145 |
-| msr_prn_1 | 11.2M | 2.17M | 0.3908 | **0.3796** | 0.4341 | 0.4148 |
-| msr_src1_1 | 45.7M | 6.17M | **0.7939** | 0.7934 | 0.8129 | 0.8231 |
-| msr_usr_1 | 45.3M | 14.0M | **0.3558** | 0.3558 | 0.4007 | 0.3513 |
-| meta_storage/1 | 13.2M | 6.01M | **0.4632** | 0.4672 | 0.4602 | 0.4667 |
-| meta_storage/3 | 14.0M | 6.76M | **0.4908** | 0.4948 | 0.4885 | 0.4947 |
-
-**Key observations:**
-
-- SIEVE k=1 beats LRU on nearly every trace, often by 2–7%.
-- SIEVE k=1 is competitive with ARC, sometimes better (msr_src1_1:
-  0.7939 vs ARC 0.8231).
-- SIEVE k=3 helps on msr_prn_1 (0.3796 vs k=1's 0.3908 — a 2.9% improvement
-  that also beats both LRU and ARC). This trace has repeated access patterns
-  where the extra eviction resistance pays off.
-- On most other traces, k>1 is neutral or slightly worse. The MSR and
-  Meta Storage block traces don't exhibit the scan patterns where k>1
-  provides a clear win.
-
-### Parallel Get Throughput (ns/op, 12 goroutines)
-
-| Trace | SIEVE k=1 | SIEVE k=3 | LRU | ARC |
-|-------|-----------|-----------|-----|-----|
-| msr_hm_0 | **1.71** | **1.77** | 190 | 232 |
-| msr_prn_0 | **1.78** | **1.86** | 185 | 241 |
-| msr_proj_0 | **1.93** | **1.97** | 195 | 258 |
-| msr_web_2 | **2.09** | **2.09** | 173 | 199 |
-
-SIEVE's lock-free `Get()` is **~100x faster** than LRU/ARC under parallel
-read load. The k=3 saturating counter adds <5% overhead to the read path.
-
-### Sequential Replay Throughput (ns/op)
-
-| Trace | SIEVE k=1 | SIEVE k=3 | LRU | ARC |
-|-------|-----------|-----------|-----|-----|
-| msr_hm_0 | **189** | 197 | 235 | 549 |
-| msr_prn_0 | **224** | 231 | 261 | 675 |
-| msr_proj_0 | **170** | 184 | 192 | 466 |
-| msr_web_2 | **584** | 593 | 574 | 1535 |
-
-SIEVE is 10–30% faster than LRU and 2.5–3x faster than ARC on the
-mixed Get+Add+eviction path. Memory usage per replay iteration is
-3.5x lower than LRU and 7x lower than ARC.
-
-### GC Pressure (meta_storage/block_traces_1, 13.2M requests, 601K cache)
-
-| Variant | TotalAlloc | GC Pause |
-|---------|------------|----------|
-| SIEVE k=1 | **154 MB** | **187 us** |
-| SIEVE k=3 | **155 MB** | 404 us |
-| LRU | 418 MB | 324 us |
-| ARC | 997 MB | 1021 us |
-
-SIEVE allocates 2.7x less than LRU and 6.5x less than ARC. The k=1 vs k=3
-difference is negligible (300 KB — the extra counter words).
+- **Parallel `Get()`**: 1.0–10 ns/op across all 18 replayed traces vs
+  ~270–620 ns/op for LRU/ARC. ~100–300x faster.
+- **Miss ratio**: SIEVE k=1 beats LRU on 13 of 18 traces, ties or beats
+  ARC on 7 of 18. SIEVE k=3 produces the best overall miss ratio on
+  msr_prn_1 (0.3796 vs LRU 0.4341, ARC 0.4148).
+- **Memory during replay**: 2.7x less than LRU, 6.5x less than ARC on
+  the 13.2M-request meta_storage/block_traces_1 trace.

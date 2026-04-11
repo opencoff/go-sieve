@@ -23,7 +23,7 @@ func BenchmarkSieveAdd(b *testing.B) {
 	// Test with various cache sizes
 	for _, cacheSize := range []int{1024, 8192, 32768} {
 		b.Run(fmt.Sprintf("CacheSize_%d", cacheSize), func(b *testing.B) {
-			cache := sieve.New[int, int](cacheSize)
+			cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 			// Generate keys with some predictable access pattern
 			keys := make([]int, b.N)
@@ -56,7 +56,7 @@ func BenchmarkSieveAdd(b *testing.B) {
 // BenchmarkSieveGetHitMiss benchmarks Get operations with a mix of hits and misses
 func BenchmarkSieveGetHitMiss(b *testing.B) {
 	cacheSize := 8192
-	cache := sieve.New[int, int](cacheSize)
+	cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Fill the cache with initial data
 	for i := 0; i < cacheSize; i++ {
@@ -98,7 +98,7 @@ func BenchmarkSieveGetHitMiss(b *testing.B) {
 // BenchmarkSieveConcurrency benchmarks high concurrency operations
 func BenchmarkSieveConcurrency(b *testing.B) {
 	cacheSize := 16384
-	cache := sieve.New[int, int](cacheSize)
+	cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 	b.ResetTimer()
 
@@ -143,7 +143,7 @@ func BenchmarkSieveGCPressure(b *testing.B) {
 			startTime := time.Now()
 
 			// Create cache with custom allocator
-			cache := sieve.New[int, int](cacheSize)
+			cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 			// Run the workload
 			runSieveWorkload(cache, operations)
@@ -174,7 +174,7 @@ func BenchmarkSieveGCPressure(b *testing.B) {
 // BenchmarkEviction_LargeCache measures eviction scan time with 1M entries.
 func BenchmarkEviction_LargeCache(b *testing.B) {
 	const cacheSize = 1_000_000
-	cache := sieve.New[int, int](cacheSize)
+	cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Fill the cache completely
 	for i := 0; i < cacheSize; i++ {
@@ -197,7 +197,7 @@ func BenchmarkEviction_LargeCache(b *testing.B) {
 func BenchmarkGCPause_Comparison(b *testing.B) {
 	for _, cacheSize := range []int{100_000, 500_000, 1_000_000} {
 		b.Run(fmt.Sprintf("Size_%d", cacheSize), func(b *testing.B) {
-			cache := sieve.New[int, int](cacheSize)
+			cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 			// Fill the cache
 			for i := 0; i < cacheSize; i++ {
@@ -242,7 +242,7 @@ func BenchmarkMemoryOverhead(b *testing.B) {
 			var before runtime.MemStats
 			runtime.ReadMemStats(&before)
 
-			cache := sieve.New[int, int](cacheSize)
+			cache := sieve.Must(sieve.New[int, int](cacheSize))
 			for i := 0; i < cacheSize; i++ {
 				cache.Add(i, i)
 			}
@@ -269,7 +269,7 @@ func BenchmarkMemoryOverhead(b *testing.B) {
 // BenchmarkGCPause_Final measures GC pause at 1M entries — the headline number for Phase 4.
 func BenchmarkGCPause_Final(b *testing.B) {
 	const cacheSize = 1_000_000
-	cache := sieve.New[int, int](cacheSize)
+	cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Fill the cache
 	for i := 0; i < cacheSize; i++ {
@@ -311,7 +311,7 @@ func BenchmarkMemoryTotal(b *testing.B) {
 			var before runtime.MemStats
 			runtime.ReadMemStats(&before)
 
-			cache := sieve.New[int, int](cacheSize)
+			cache := sieve.Must(sieve.New[int, int](cacheSize))
 			for i := 0; i < cacheSize; i++ {
 				cache.Add(i, i)
 			}
@@ -343,7 +343,7 @@ func BenchmarkEviction_VaryingVisited(b *testing.B) {
 
 	for _, pctVisited := range []int{0, 50, 90, 100} {
 		b.Run(fmt.Sprintf("Visited_%d%%", pctVisited), func(b *testing.B) {
-			cache := sieve.New[int, int](cacheSize)
+			cache := sieve.Must(sieve.New[int, int](cacheSize))
 
 			// Fill the cache
 			for i := 0; i < cacheSize; i++ {

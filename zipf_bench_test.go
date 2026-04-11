@@ -149,7 +149,7 @@ func BenchmarkSlotState_Zipf_Mixed(b *testing.B) {
 func BenchmarkSieve_Zipf_Get(b *testing.B) {
 	for _, sk := range zipfSkews {
 		b.Run(sk.name, func(b *testing.B) {
-			c := New[int, int](_ZipfCacheSize)
+			c := Must(New[int, int](_ZipfCacheSize))
 			seq := zipfIndices(_ZipfSeqLen, _ZipfKeyRange, sk.s, 42)
 
 			// Warm up: establish working set
@@ -179,7 +179,7 @@ func BenchmarkSieve_Zipf_Get(b *testing.B) {
 func BenchmarkSieve_Zipf_GetOrAdd(b *testing.B) {
 	for _, sk := range zipfSkews {
 		b.Run(sk.name, func(b *testing.B) {
-			c := New[int, int](_ZipfCacheSize)
+			c := Must(New[int, int](_ZipfCacheSize))
 			seq := zipfIndices(_ZipfSeqLen, _ZipfKeyRange, sk.s, 42)
 
 			b.ResetTimer()
@@ -204,7 +204,7 @@ func BenchmarkSieve_Zipf_GetOrAdd(b *testing.B) {
 func BenchmarkSieve_Zipf_Probe(b *testing.B) {
 	for _, sk := range zipfSkews {
 		b.Run(sk.name, func(b *testing.B) {
-			c := New[int, int](_ZipfCacheSize)
+			c := Must(New[int, int](_ZipfCacheSize))
 			seq := zipfIndices(_ZipfSeqLen, _ZipfKeyRange, sk.s, 42)
 
 			b.ResetTimer()
@@ -226,7 +226,7 @@ func BenchmarkSieve_Zipf_Probe(b *testing.B) {
 func BenchmarkSieve_Zipf_Mixed(b *testing.B) {
 	for _, sk := range zipfSkews {
 		b.Run(sk.name, func(b *testing.B) {
-			c := New[int, int](_ZipfCacheSize)
+			c := Must(New[int, int](_ZipfCacheSize))
 			seq := zipfIndices(_ZipfSeqLen, _ZipfKeyRange, sk.s, 42)
 
 			// Pre-fill so deletes have something to hit

@@ -1,6 +1,6 @@
 module github.com/opencoff/go-sieve/bench
 
-go 1.26
+go 1.26.1
 
 replace github.com/opencoff/go-sieve => ..
 

@@ -8,8 +8,8 @@ import (
 
 	sieve "github.com/opencoff/go-sieve"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 // BenchmarkGet_Parallel measures concurrent read throughput.
@@ -17,7 +17,7 @@ func BenchmarkGet_Parallel(b *testing.B) {
 	const cacheSize = 8192
 
 	b.Run("Sieve", func(b *testing.B) {
-		c := sieve.New[int, int](cacheSize)
+		c := sieve.Must(sieve.New[int, int](cacheSize))
 		for i := 0; i < cacheSize; i++ {
 			c.Add(i, i)
 		}
@@ -65,7 +65,7 @@ func BenchmarkAdd_Parallel(b *testing.B) {
 	const keyRange = cacheSize * 2
 
 	b.Run("Sieve", func(b *testing.B) {
-		c := sieve.New[int, int](cacheSize)
+		c := sieve.Must(sieve.New[int, int](cacheSize))
 		b.ResetTimer()
 		b.RunParallel(func(pb *testing.PB) {
 			r := rand.New(rand.NewSource(rand.Int63()))
@@ -107,7 +107,7 @@ func BenchmarkMixed_Parallel(b *testing.B) {
 	const keyRange = cacheSize * 2
 
 	b.Run("Sieve", func(b *testing.B) {
-		c := sieve.New[int, int](cacheSize)
+		c := sieve.Must(sieve.New[int, int](cacheSize))
 		for i := 0; i < cacheSize; i++ {
 			c.Add(i, i)
 		}
@@ -187,7 +187,7 @@ func BenchmarkMemoryFootprint(b *testing.B) {
 				runtime.GC()
 				runtime.ReadMemStats(&before)
 
-				c := sieve.New[int, int](size)
+				c := sieve.Must(sieve.New[int, int](size))
 				for i := 0; i < size; i++ {
 					c.Add(i, i)
 				}
@@ -243,7 +243,7 @@ func BenchmarkGCImpact(b *testing.B) {
 	const keyRange = size * 2
 
 	b.Run("Sieve", func(b *testing.B) {
-		c := sieve.New[int, int](size)
+		c := sieve.Must(sieve.New[int, int](size))
 		for i := 0; i < size; i++ {
 			c.Add(i, i)
 		}
@@ -328,7 +328,7 @@ func BenchmarkZipf_Get_Parallel(b *testing.B) {
 		name := fmt.Sprintf("s=%.2f", skew)
 
 		b.Run(name+"/Sieve", func(b *testing.B) {
-			c := sieve.New[int, int](cacheSize)
+			c := sieve.Must(sieve.New[int, int](cacheSize))
 			seq := zipfSequence(seqLen, keyRange, skew, 42)
 			for _, k := range seq {
 				if _, ok := c.Get(k); !ok {

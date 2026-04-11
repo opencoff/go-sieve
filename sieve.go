@@ -26,11 +26,38 @@
 package sieve
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/puzpuzpuz/xsync/v3"
+)
+
+// MaxCapacity is the largest value accepted by New for the cache capacity.
+// Node indices are stored as int32 (to keep the node struct compact and to
+// let xsync.MapOf pack values inline); the bump allocator advances to
+// capacity+1 after the last fill, so the upper bound is math.MaxInt32 - 1.
+const MaxCapacity = math.MaxInt32 - 1
+
+// MaxVisitClamp is the maximum value accepted by WithVisitClamp. Values above
+// this are rejected by New with ErrInvalidVisitClamp. The limit is one byte
+// because no published SIEVE-k workload benefits from counters larger than a
+// few units.
+const MaxVisitClamp = 7
+
+// Construction errors returned by New.
+var (
+	// ErrInvalidCapacity is returned by New when capacity is outside the
+	// valid range [1, MaxCapacity].
+	ErrInvalidCapacity = errors.New("sieve: capacity out of range [1, MaxCapacity]")
+
+	// ErrInvalidVisitClamp is returned by New when WithVisitClamp receives
+	// a value greater than MaxVisitClamp. Values below 1 are silently
+	// clamped up to 1 (classic SIEVE).
+	ErrInvalidVisitClamp = errors.New("sieve: visit clamp must be <= MaxVisitClamp")
 )
 
 const (
@@ -64,7 +91,7 @@ func initAllocator[K comparable, V any](a *allocator[K, V], capacity int) {
 	a.nodes = make([]node[K, V], capacity+1) // +1 for sentinel
 	a.cur = 1                                // skip sentinel at index 0
 	a.next = nullIdx
-	a.cap = int32(capacity) // #nosec G115 — capacity is user-provided positive int, bounded well below int32 max
+	a.cap = int32(capacity) // #nosec G115 — New() validates capacity in [1, MaxCapacity = MaxInt32-1]
 	// Initialize sentinel: circular self-links
 	a.nodes[sentinelIdx].next = sentinelIdx
 	a.nodes[sentinelIdx].prev = sentinelIdx
@@ -149,9 +176,9 @@ func (r CacheResult) Evicted() bool { return r&CacheEvict != 0 }
 type Sieve[K comparable, V any] struct {
 	mu    sync.Mutex
 	cache *xsync.MapOf[K, int32]
-	slots slotState // combined per-node lock + visited counter
-	hand  int32     // eviction hand; sentinelIdx means "unset, start from tail"
-	size  int
+	slots slotState    // combined per-node lock + visited counter
+	hand  int32        // eviction hand; sentinelIdx means "unset, start from tail"
+	size  atomic.Int32 // lock-free Len(); writes happen under s.mu
 
 	allocator allocator[K, V] // embedded by value — one fewer GC-traced pointer
 }
@@ -159,13 +186,25 @@ type Sieve[K comparable, V any] struct {
 // New creates a new cache of size 'capacity' mapping key 'K' to value 'V'.
 // Without options, this creates a classic SIEVE with a single visited bit (k=1).
 // Use WithVisitClamp to create a SIEVE-k cache.
-func New[K comparable, V any](capacity int, opts ...Option) *Sieve[K, V] {
+//
+// Returns ErrInvalidCapacity if capacity is outside [1, MaxCapacity] and
+// ErrInvalidVisitClamp if the visit-clamp option exceeds MaxVisitClamp.
+// Clamp values below 1 are silently rounded up to 1 for backwards
+// compatibility with callers that pass a zero default.
+func New[K comparable, V any](capacity int, opts ...Option) (*Sieve[K, V], error) {
+	if capacity <= 0 || capacity > MaxCapacity {
+		return nil, fmt.Errorf("%w: got %d, max %d", ErrInvalidCapacity, capacity, MaxCapacity)
+	}
+
 	cfg := config{k: 1}
 	for _, o := range opts {
 		o(&cfg)
 	}
 	if cfg.k < 1 {
 		cfg.k = 1
+	}
+	if cfg.k > MaxVisitClamp {
+		return nil, fmt.Errorf("%w: got %d, max %d", ErrInvalidVisitClamp, cfg.k, MaxVisitClamp)
 	}
 
 	// +1 for sentinel in slot array to keep indexing aligned
@@ -176,6 +215,18 @@ func New[K comparable, V any](capacity int, opts ...Option) *Sieve[K, V] {
 		slots: newSlotState(total, cfg.k),
 	}
 	initAllocator(&s.allocator, capacity)
+	return s, nil
+}
+
+// Must is a helper that wraps a call to New and panics if the error is
+// non-nil. It is intended for use in tests and top-level variable
+// initializers where construction arguments are known constants:
+//
+//	var cache = sieve.Must(sieve.New[string, int](1000))
+func Must[K comparable, V any](s *Sieve[K, V], err error) *Sieve[K, V] {
+	if err != nil {
+		panic(err)
+	}
 	return s
 }
 
@@ -312,13 +363,16 @@ func (s *Sieve[K, V]) Purge() {
 	s.hand = sentinelIdx
 	s.cache.Clear()
 	s.allocator.reset()
-	s.size = 0
+	s.size.Store(0)
 	s.mu.Unlock()
 }
 
-// Len returns the current cache utilization
+// Len returns the current cache utilization. It is lock-free (atomic
+// load) and may observe in-flight updates from concurrent Add/Delete/Purge
+// callers, so treat the result as a point-in-time estimate under
+// concurrent use.
 func (s *Sieve[K, V]) Len() int {
-	return s.size
+	return int(s.size.Load())
 }
 
 // Cap returns the max cache capacity
@@ -365,7 +419,7 @@ func (s *Sieve[K, V]) add(key K, val V) (Evicted[K, V], bool) {
 	var evicted bool
 
 	// cache miss; we evict and find a new node
-	if int32(s.size) == s.allocator.capacity() { // #nosec G115 — size never exceeds capacity (int32)
+	if s.size.Load() == s.allocator.capacity() {
 		ev, evicted = s.evict()
 	}
 
@@ -389,7 +443,7 @@ func (s *Sieve[K, V]) add(key K, val V) (Evicted[K, V], bool) {
 	n.next, n.prev = head, sentinelIdx
 	sen.next, nodes[head].prev = idx, idx
 
-	s.size += 1
+	s.size.Add(1)
 	return ev, evicted
 }
 
@@ -432,7 +486,7 @@ func (s *Sieve[K, V]) evict() (Evicted[K, V], bool) {
 // slot lock to serialize with concurrent fast-path reads and to
 // release GC references. Branch-free: sentinel eliminates null checks.
 func (s *Sieve[K, V]) remove(idx int32) Evicted[K, V] {
-	s.size -= 1
+	s.size.Add(-1)
 
 	nodes := s.allocator.nodes
 	n := &nodes[idx]
@@ -486,7 +540,7 @@ func (s *Sieve[K, V]) newNode(key K, val V) int32 {
 func (s *Sieve[K, V]) desc() string {
 	nodes := s.allocator.nodes
 	m := fmt.Sprintf("cache<%T>: size %d, cap %d, head=%d, tail=%d, hand=%d",
-		s, s.size, int(s.allocator.capacity()),
+		s, s.size.Load(), int(s.allocator.capacity()),
 		nodes[sentinelIdx].next, nodes[sentinelIdx].prev, s.hand)
 	return m
 }

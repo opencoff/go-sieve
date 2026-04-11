@@ -9,7 +9,7 @@ import (
 // on the first pass.
 func TestSieveK_EvictionSurvival(t *testing.T) {
 	// Cache of 3 slots, k=3
-	c := New[string, int](3, WithVisitClamp(3))
+	c := Must(New[string, int](3, WithVisitClamp(3)))
 
 	// Fill cache: A, B, C
 	c.Add("A", 1)
@@ -58,7 +58,7 @@ func TestSieveK_EvictionSurvival(t *testing.T) {
 // TestSieveK_CounterSaturation verifies that 100 accesses with k=3
 // means 3 eviction passes are needed to evict.
 func TestSieveK_CounterSaturation(t *testing.T) {
-	c := New[int, int](2, WithVisitClamp(3))
+	c := Must(New[int, int](2, WithVisitClamp(3)))
 
 	c.Add(1, 1)
 	c.Add(2, 2)
@@ -89,8 +89,8 @@ func TestSieveK_CounterSaturation(t *testing.T) {
 // TestSieveK_K1_Equivalent verifies that NewWithVisits(cap, 1) behaves
 // identically to New(cap).
 func TestSieveK_K1_Equivalent(t *testing.T) {
-	c1 := New[int, int](100)
-	c2 := New[int, int](100, WithVisitClamp(1))
+	c1 := Must(New[int, int](100))
+	c2 := Must(New[int, int](100, WithVisitClamp(1)))
 
 	// Both should use k=1 (NewWithVisits(_, 1) uses vbits=1)
 	// Verify via behavior: same results for same inputs.

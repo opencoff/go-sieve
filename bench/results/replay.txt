@@ -1,0 +1,2 @@
+PASS
+ok  	github.com/opencoff/go-sieve/bench	0.004s

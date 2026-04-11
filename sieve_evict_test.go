@@ -26,7 +26,7 @@ import (
 func TestEvict_Basic(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, string](4)
+	s := sieve.Must(sieve.New[int, string](4))
 
 	s.Add(1, "one")
 	s.Add(2, "two")
@@ -45,7 +45,7 @@ func TestEvict_Basic(t *testing.T) {
 func TestEvict_CaptureBeforeZero(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[string, int](2)
+	s := sieve.Must(sieve.New[string, int](2))
 
 	s.Add("alpha", 42)
 	s.Add("beta", 99)
@@ -63,7 +63,7 @@ func TestEvict_Sequential(t *testing.T) {
 
 	const cap = 4
 	const overflow = 6
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	// Fill to capacity — no evictions
 	for i := 0; i < cap; i++ {
@@ -88,7 +88,7 @@ func TestEvict_Sequential(t *testing.T) {
 func TestEvict_VisitedSkipped(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, string](4)
+	s := sieve.Must(sieve.New[int, string](4))
 
 	s.Add(1, "one")
 	s.Add(2, "two")
@@ -114,7 +114,7 @@ func TestEvict_VisitedSkipped(t *testing.T) {
 func TestEvict_SieveK(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[string, int](3, sieve.WithVisitClamp(3))
+	s := sieve.Must(sieve.New[string, int](3, sieve.WithVisitClamp(3)))
 
 	s.Add("A", 1)
 	s.Add("B", 2)
@@ -138,7 +138,7 @@ func TestEvict_SieveK(t *testing.T) {
 // TestEvict_NoBelowCapacity verifies that no eviction occurs
 // when the cache is not yet full.
 func TestEvict_NoBelowCapacity(t *testing.T) {
-	s := sieve.New[int, int](8)
+	s := sieve.Must(sieve.New[int, int](8))
 
 	for i := 0; i < 8; i++ {
 		_, r := s.Add(i, i)
@@ -153,7 +153,7 @@ func TestEvict_NoBelowCapacity(t *testing.T) {
 func TestEvict_HitNoEviction(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, int](4)
+	s := sieve.Must(sieve.New[int, int](4))
 
 	// Fill to capacity
 	for i := 0; i < 4; i++ {
@@ -173,7 +173,7 @@ func TestEvict_HitNoEviction(t *testing.T) {
 func TestEvict_Probe(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, int](3)
+	s := sieve.Must(sieve.New[int, int](3))
 
 	s.Add(1, 100)
 	s.Add(2, 200)
@@ -194,7 +194,7 @@ func TestEvict_Probe(t *testing.T) {
 func TestEvict_ProbeHitNoEviction(t *testing.T) {
 	assert := newAsserter(t)
 
-	s := sieve.New[int, int](4)
+	s := sieve.Must(sieve.New[int, int](4))
 
 	for i := 0; i < 4; i++ {
 		s.Add(i, i*10)
@@ -217,7 +217,7 @@ func TestEvict_Concurrent(t *testing.T) {
 		keysPerW  = 100
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var mu sync.Mutex
 	var evictions []sieve.Evicted[int, int]
@@ -255,7 +255,7 @@ func TestEvict_Concurrent(t *testing.T) {
 
 // TestEvict_CacheResultBitmask verifies the CacheResult bitmask values.
 func TestEvict_CacheResultBitmask(t *testing.T) {
-	s := sieve.New[int, int](2)
+	s := sieve.Must(sieve.New[int, int](2))
 
 	// Case 1: new add, no eviction → result is 0
 	_, r := s.Add(1, 10)

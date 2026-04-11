@@ -14,8 +14,8 @@ import (
 
 	"github.com/opencoff/go-sieve/bench"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 // --- Trace discovery and caching ---
@@ -100,15 +100,15 @@ func TestMissRatio(t *testing.T) {
 			}
 			variants := []variant{
 				{"sieve-k1", func() int {
-					c := sieve.New[uint64, struct{}](capacity)
+					c := sieve.Must(sieve.New[uint64, struct{}](capacity))
 					return replayMisses(c, trace)
 				}},
 				{"sieve-k2", func() int {
-					c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(2))
+					c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(2)))
 					return replayMisses(c, trace)
 				}},
 				{"sieve-k3", func() int {
-					c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
+					c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
 					return replayMisses(c, trace)
 				}},
 				{"LRU", func() int {
@@ -144,7 +144,7 @@ func BenchmarkReplay(b *testing.B) {
 
 		b.Run(e.name+"/SieveK1", func(b *testing.B) {
 			for range b.N {
-				c := sieve.New[uint64, struct{}](capacity)
+				c := sieve.Must(sieve.New[uint64, struct{}](capacity))
 				misses := replayMisses(c, trace)
 				b.ReportMetric(float64(misses)/float64(len(trace.Requests)), "miss-ratio")
 			}
@@ -152,7 +152,7 @@ func BenchmarkReplay(b *testing.B) {
 
 		b.Run(e.name+"/SieveK3", func(b *testing.B) {
 			for range b.N {
-				c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
+				c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
 				misses := replayMisses(c, trace)
 				b.ReportMetric(float64(misses)/float64(len(trace.Requests)), "miss-ratio")
 			}
@@ -189,7 +189,7 @@ func BenchmarkParallelGet(b *testing.B) {
 		}
 
 		b.Run(e.name+"/SieveK1", func(b *testing.B) {
-			c := sieve.New[uint64, struct{}](capacity)
+			c := sieve.Must(sieve.New[uint64, struct{}](capacity))
 			warmup(c, trace)
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
@@ -202,7 +202,7 @@ func BenchmarkParallelGet(b *testing.B) {
 		})
 
 		b.Run(e.name+"/SieveK3", func(b *testing.B) {
-			c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
+			c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
 			warmup(c, trace)
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
@@ -283,11 +283,11 @@ func TestGCPressure(t *testing.T) {
 
 	results := []result{
 		runGCTest("sieve-k1", func() {
-			c := sieve.New[uint64, struct{}](capacity)
+			c := sieve.Must(sieve.New[uint64, struct{}](capacity))
 			replayMisses(c, trace)
 		}),
 		runGCTest("sieve-k3", func() {
-			c := sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3))
+			c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
 			replayMisses(c, trace)
 		}),
 		runGCTest("LRU", func() {

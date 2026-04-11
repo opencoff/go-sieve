@@ -58,7 +58,7 @@ func splitLines(s string) []string {
 // TestInvariants exercises validate() after every operation.
 func TestInvariants(t *testing.T) {
 	const cap = 8
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 	validate(t, s, "empty cache")
 
 	// Add items up to capacity
@@ -175,7 +175,7 @@ func TestInvariants(t *testing.T) {
 // TestInvariants_LargerScale runs invariant checks at a larger scale.
 func TestInvariants_LargerScale(t *testing.T) {
 	const cap = 128
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	// Fill, evict, delete in various patterns
 	for i := 0; i < cap*4; i++ {

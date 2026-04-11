@@ -1,0 +1,318 @@
+goos: linux
+goarch: amd64
+pkg: github.com/opencoff/go-sieve
+cpu: 13th Gen Intel(R) Core(TM) i9-13900
+BenchmarkSlotState_LockAndMark_Uncontended_K1-32           	100000000	        10.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Uncontended_K1-32           	100000000	        10.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Uncontended_K1-32           	100000000	        10.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Uncontended_K3-32           	80263214	        14.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Uncontended_K3-32           	95544504	        14.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Uncontended_K3-32           	90301334	        14.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Lock_Uncontended-32                     	100000000	        10.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Lock_Uncontended-32                     	100000000	        10.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Lock_Uncontended-32                     	100000000	        10.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_IsVisited_Uncontended-32                	1000000000	         0.4545 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_IsVisited_Uncontended-32                	1000000000	         0.4546 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_IsVisited_Uncontended-32                	1000000000	         0.4551 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Clear_Uncontended-32                    	43322269	        27.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Clear_Uncontended-32                    	46517918	        27.78 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Clear_Uncontended-32                    	40998704	        27.77 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndReset_Uncontended-32             	77759378	        14.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndReset_Uncontended-32             	79372958	        14.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndReset_Uncontended-32             	76872704	        14.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Contended_K1_SameSlot-32    	27941102	        39.91 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Contended_K1_SameSlot-32    	26732512	        44.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Contended_K1_SameSlot-32    	26829319	        44.91 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Contended_K3_SameSlot-32    	31611522	        35.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Contended_K3_SameSlot-32    	24723288	        49.13 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_Contended_K3_SameSlot-32    	31960885	        44.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Lock_Contended_SameSlot-32              	26357470	        44.77 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Lock_Contended_SameSlot-32              	29429502	        39.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Lock_Contended_SameSlot-32              	31147776	        43.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_1-32         	17994897	        70.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_1-32         	14663325	        91.94 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_1-32         	14126834	        78.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_4-32         	 8975809	       137.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_4-32         	 8858647	       139.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_4-32         	 8787276	       137.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_16-32        	20561389	        59.01 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_16-32        	20408582	        52.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_16-32        	20048748	        58.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_64-32        	66454304	        17.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_64-32        	68693104	        17.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_64-32        	71157878	        17.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_256-32       	202880655	         6.002 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_256-32       	201370022	         5.947 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_256-32       	200228365	         6.011 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_1024-32      	450879872	         2.681 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_1024-32      	431479273	         2.735 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_1024-32      	446932986	         2.688 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_8192-32      	761843533	         1.654 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_8192-32      	749042484	         1.618 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K1/Slots_8192-32      	745677141	         1.627 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_1-32         	18334635	        69.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_1-32         	16632062	        68.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_1-32         	16770620	        69.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_4-32         	 8189457	       145.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_4-32         	 8150980	       144.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_4-32         	 8237905	       141.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_16-32        	16482782	        65.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_16-32        	16433463	        71.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_16-32        	17402485	        71.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_64-32        	63170458	        19.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_64-32        	63633356	        19.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_64-32        	62928357	        19.26 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_256-32       	188708449	         6.389 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_256-32       	175003107	         6.603 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_256-32       	188704516	         6.318 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_1024-32      	408147081	         2.994 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_1024-32      	403996267	         2.979 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_1024-32      	400937134	         3.210 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_8192-32      	583638480	         1.853 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_8192-32      	646245554	         1.849 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_LockAndMark_ContendedScaling_K3/Slots_8192-32      	646813191	         1.879 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_IsVisited_Parallel-32                              	1000000000	         0.2891 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_IsVisited_Parallel-32                              	1000000000	         0.2959 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_IsVisited_Parallel-32                              	1000000000	         0.2940 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Clear_Contended_K3-32                              	391709696	         3.014 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Clear_Contended_K3-32                              	397720257	         3.018 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Clear_Contended_K3-32                              	392715874	         3.027 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_MixedWorkload_Parallel-32                          	655906207	         1.795 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_MixedWorkload_Parallel-32                          	680246101	         1.803 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_MixedWorkload_Parallel-32                          	665311360	         1.793 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.01-32                                  	31337702	        38.67 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.01-32                                  	28527798	        37.90 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.01-32                                  	30440203	        38.22 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.20-32                                  	20321728	        60.60 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.20-32                                  	19736242	        60.91 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.20-32                                  	18573375	        60.80 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.50-32                                  	14456092	        83.01 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.50-32                                  	14753406	        81.23 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K1/s=1.50-32                                  	12616116	        81.72 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.01-32                                  	30077292	        39.10 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.01-32                                  	30957909	        39.33 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.01-32                                  	30301249	        38.90 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.20-32                                  	19786842	        61.62 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.20-32                                  	18977608	        62.30 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.20-32                                  	19043449	        63.11 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.50-32                                  	14604279	        84.99 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.50-32                                  	13813651	        85.24 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_K3/s=1.50-32                                  	14282164	        84.67 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.01-32                               	34058308	        34.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.01-32                               	33763549	        34.05 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.01-32                               	33771554	        33.75 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.20-32                               	22599650	        54.65 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.20-32                               	21175291	        55.65 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.20-32                               	21563066	        55.63 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.50-32                               	14185315	        82.13 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.50-32                               	14503743	        82.04 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSlotState_Zipf_Mixed/s=1.50-32                               	14791963	        82.02 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.01-32                                     	58517967	        18.40 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.01-32                                     	59338171	        17.94 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.01-32                                     	56844097	        18.49 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.20-32                                     	32450926	        36.59 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.20-32                                     	31957023	        36.38 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.20-32                                     	31764682	        36.57 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.50-32                                     	16508931	        70.72 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.50-32                                     	18327312	        70.14 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Get/s=1.50-32                                     	15425892	        70.22 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.01-32                                	19019690	        59.83 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.01-32                                	23601658	        50.43 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.01-32                                	19817664	        50.91 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.20-32                                	20576845	        51.64 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.20-32                                	23334211	        46.10 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.20-32                                	28139883	        50.08 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.50-32                                	17179585	        65.00 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.50-32                                	17511958	        67.04 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_GetOrAdd/s=1.50-32                                	15801289	        65.59 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.01-32                                   	24359524	        49.37 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.01-32                                   	23164810	        50.20 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.01-32                                   	23998562	        49.34 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.20-32                                   	25198646	        47.40 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.20-32                                   	29515334	        49.32 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.20-32                                   	22783521	        44.83 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.50-32                                   	18467571	        60.01 ns/op	       1 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.50-32                                   	16962187	        73.05 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Probe/s=1.50-32                                   	16134295	        68.47 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.01-32                                   	11416718	       105.4 ns/op	       4 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.01-32                                   	11170970	       106.2 ns/op	       4 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.01-32                                   	10953009	       105.9 ns/op	       4 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.20-32                                   	11104549	        97.62 ns/op	       4 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.20-32                                   	11125251	       100.3 ns/op	       4 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.20-32                                   	11576952	        98.40 ns/op	       4 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.50-32                                   	12254136	        89.92 ns/op	       3 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.50-32                                   	12350215	        86.04 ns/op	       3 B/op	       0 allocs/op
+BenchmarkSieve_Zipf_Mixed/s=1.50-32                                   	12634018	        96.98 ns/op	       3 B/op	       0 allocs/op
+BenchmarkSieveAdd/CacheSize_1024-32                                   	 9068482	       133.1 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_1024-32                                   	 8958608	       132.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_1024-32                                   	 8784837	       133.1 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_8192-32                                   	 8745423	       132.4 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_8192-32                                   	 9030232	       132.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_8192-32                                   	 8848591	       133.9 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_32768-32                                  	 8591280	       137.5 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_32768-32                                  	 8831752	       138.5 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveAdd/CacheSize_32768-32                                  	 8576835	       145.4 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSieveGetHitMiss-32                                           	14842276	        93.17 ns/op	         0.4998 hit-ratio	       8 B/op	       0 allocs/op
+BenchmarkSieveGetHitMiss-32                                           	14817192	        84.21 ns/op	         0.4998 hit-ratio	       8 B/op	       0 allocs/op
+BenchmarkSieveGetHitMiss-32                                           	14507857	        83.80 ns/op	         0.4999 hit-ratio	       8 B/op	       0 allocs/op
+BenchmarkSieveConcurrency-32                                          	 8288850	       145.2 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieveConcurrency-32                                          	 8877375	       166.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieveConcurrency-32                                          	 7673274	       144.4 ns/op	       2 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_1000-32                            	1000000000	         0.1069 ns/op	         6.000 GC-cycles	         0.2753 GC-pause-ns/op	         0.004342 heap-objs/op	   9439897 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_1000-32                            	1000000000	         0.1103 ns/op	         6.000 GC-cycles	         0.3027 GC-pause-ns/op	         0.004351 heap-objs/op	   9149988 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_1000-32                            	1000000000	         0.1041 ns/op	         6.000 GC-cycles	         0.3349 GC-pause-ns/op	         0.004351 heap-objs/op	   9693678 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_10000-32                           	1000000000	         0.1262 ns/op	         6.000 GC-cycles	         0.3543 GC-pause-ns/op	         0.004343 heap-objs/op	   8016712 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_10000-32                           	1000000000	         0.1244 ns/op	         6.000 GC-cycles	         0.4628 GC-pause-ns/op	         0.004352 heap-objs/op	   8117749 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_10000-32                           	1000000000	         0.1212 ns/op	         6.000 GC-cycles	         0.2813 GC-pause-ns/op	         0.004353 heap-objs/op	   8325577 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_50000-32                           	1000000000	         0.1868 ns/op	         6.000 GC-cycles	         0.3477 GC-pause-ns/op	         0.004346 heap-objs/op	   5389146 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_50000-32                           	1000000000	         0.1959 ns/op	         5.000 GC-cycles	         0.2996 GC-pause-ns/op	         0.004356 heap-objs/op	   5148925 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkSieveGCPressure/CacheSize_50000-32                           	1000000000	         0.2077 ns/op	         6.000 GC-cycles	         0.3404 GC-pause-ns/op	         0.004356 heap-objs/op	   4841961 ops/sec	       0 B/op	       0 allocs/op
+BenchmarkEviction_LargeCache-32                                       	 4491866	       244.1 ns/op	      17 B/op	       1 allocs/op
+BenchmarkEviction_LargeCache-32                                       	 4643049	       263.9 ns/op	      17 B/op	       1 allocs/op
+BenchmarkEviction_LargeCache-32                                       	 4539627	       269.1 ns/op	      17 B/op	       1 allocs/op
+BenchmarkGCPause_Comparison/Size_100000-32                            	28696402	        41.79 ns/op	    101414 avg-gc-pause-ns	      4342 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_100000-32                            	24637260	        42.69 ns/op	    100871 avg-gc-pause-ns	      4351 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_100000-32                            	27209774	        41.59 ns/op	    100314 avg-gc-pause-ns	      4351 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_500000-32                            	14211144	        72.48 ns/op	    100401 avg-gc-pause-ns	      4343 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_500000-32                            	13710766	        77.38 ns/op	    100170 avg-gc-pause-ns	      4352 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_500000-32                            	12288686	        82.14 ns/op	    100101 avg-gc-pause-ns	      4352 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_1000000-32                           	17608658	        84.14 ns/op	     99945 avg-gc-pause-ns	      4344 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_1000000-32                           	21278644	        79.27 ns/op	     99752 avg-gc-pause-ns	      4353 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Comparison/Size_1000000-32                           	16142494	        83.40 ns/op	     99704 avg-gc-pause-ns	      4353 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_100000-32                                	54703081	        18.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_100000-32                                	59345431	        18.48 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_100000-32                                	58651876	        18.90 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_500000-32                                	22799808	        56.37 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_500000-32                                	20689298	        55.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_500000-32                                	24133844	        54.58 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_1000000-32                               	20209330	        58.00 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_1000000-32                               	18424306	        57.05 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryOverhead/Size_1000000-32                               	22438714	        60.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGCPause_Final-32                                             	18441723	        86.46 ns/op	     99055 avg-gc-pause-ns	  84302840 heap-bytes	   1019302 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Final-32                                             	17871829	        84.41 ns/op	     99107 avg-gc-pause-ns	  84286528 heap-bytes	   1019025 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkGCPause_Final-32                                             	19095525	        84.57 ns/op	     98899 avg-gc-pause-ns	  84298048 heap-bytes	   1019205 heap-objects	       2 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_100000-32                                   	59615204	        18.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_100000-32                                   	61358667	        19.03 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_100000-32                                   	56658993	        18.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_500000-32                                   	25170474	        41.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_500000-32                                   	24172418	        56.73 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_500000-32                                   	25074240	        52.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_1000000-32                                  	20016222	        59.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_1000000-32                                  	20557026	        58.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemoryTotal/Size_1000000-32                                  	20077630	        57.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_0%-32                        	 6435711	       199.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_0%-32                        	 6012973	       212.2 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_0%-32                        	 6783050	       203.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_50%-32                       	 6784460	       170.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_50%-32                       	 7420560	       164.3 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_50%-32                       	 7128294	       196.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_90%-32                       	 7207772	       173.9 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_90%-32                       	 7386342	       176.1 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_90%-32                       	 7161344	       170.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_100%-32                      	 6716798	       201.3 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_100%-32                      	 6427449	       197.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkEviction_VaryingVisited/Visited_100%-32                      	 6690471	       192.4 ns/op	      16 B/op	       1 allocs/op
+BenchmarkGet_Parallel-32                                              	531287030	         2.273 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel-32                                              	529102935	         2.912 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel-32                                              	440838789	         2.758 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_Parallel-32                                              	 7435046	       148.1 ns/op	       8 B/op	       0 allocs/op
+BenchmarkAdd_Parallel-32                                              	 8337691	       149.1 ns/op	       8 B/op	       0 allocs/op
+BenchmarkAdd_Parallel-32                                              	 8274790	       176.8 ns/op	       8 B/op	       0 allocs/op
+BenchmarkMixed_Parallel-32                                            	 8646944	       136.1 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel-32                                            	 8733274	       137.9 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel-32                                            	 8647942	       141.0 ns/op	       2 B/op	       0 allocs/op
+BenchmarkProbe_Parallel-32                                            	 8397271	       140.6 ns/op	       8 B/op	       0 allocs/op
+BenchmarkProbe_Parallel-32                                            	 8310190	       144.7 ns/op	       8 B/op	       0 allocs/op
+BenchmarkProbe_Parallel-32                                            	 8393078	       143.8 ns/op	       8 B/op	       0 allocs/op
+BenchmarkDelete_Parallel-32                                           	 3930854	       313.3 ns/op	       8 B/op	       0 allocs/op
+BenchmarkDelete_Parallel-32                                           	 3891876	       316.0 ns/op	       8 B/op	       0 allocs/op
+BenchmarkDelete_Parallel-32                                           	 3827408	       313.8 ns/op	       8 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_1-32                                	13947937	        87.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_1-32                                	12956032	        87.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_1-32                                	13628751	        88.92 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_4-32                                	 8330432	       165.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_4-32                                	 8489823	       146.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_4-32                                	 8457447	       133.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_16-32                               	16623872	        71.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_16-32                               	17302264	        70.22 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_16-32                               	17127433	        70.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_64-32                               	66390246	        17.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_64-32                               	65792535	        18.01 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_ContentionStorm/Keys_64-32                               	66104938	        18.05 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve	359.156s
+goos: linux
+goarch: amd64
+pkg: github.com/opencoff/go-sieve/exp
+cpu: 13th Gen Intel(R) Core(TM) i9-13900
+BenchmarkVisitedBits_Set-32                             	1000000000	         1.021 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Set-32                             	1000000000	         1.016 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Set-32                             	1000000000	         1.015 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Set_Contended-32                   	1000000000	         0.2450 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Set_Contended-32                   	1000000000	         0.2499 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Set_Contended-32                   	1000000000	         0.2506 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Test-32                            	1000000000	         0.6048 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Test-32                            	1000000000	         0.6047 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Test-32                            	1000000000	         0.6086 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Clear-32                           	1000000000	         1.013 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Clear-32                           	1000000000	         1.015 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBits_Clear-32                           	1000000000	         1.023 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_Uncontended-32          	98786376	        11.89 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_Uncontended-32          	97852870	        11.91 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_Uncontended-32          	97668616	        11.85 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_Parallel-32             	37709162	        30.48 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_Parallel-32             	39653979	        29.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_Parallel-32             	38009382	        26.36 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_DifferentSlots-32       	100000000	        14.22 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_DifferentSlots-32       	98252030	        11.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_RLockUnlock_DifferentSlots-32       	100000000	        12.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_LockUnlock_Uncontended-32           	81952036	        17.10 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_LockUnlock_Uncontended-32           	65100009	        17.11 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_LockUnlock_Uncontended-32           	68726218	        17.11 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_Mixed_Parallel-32                   	14946168	        82.37 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_Mixed_Parallel-32                   	14359648	        80.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRWSpinlock_Mixed_Parallel-32                   	14204402	        91.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSaturatingCounter_Mark-32                      	460032579	         2.555 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSaturatingCounter_Mark-32                      	465980668	         2.553 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSaturatingCounter_Mark-32                      	463846197	         2.563 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSaturatingCounter_Mark_Contended-32            	1000000000	         0.05673 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSaturatingCounter_Mark_Contended-32            	1000000000	         0.05552 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSaturatingCounter_Mark_Contended-32            	1000000000	         0.05664 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_Uncontended-32       	93235448	        12.89 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_Uncontended-32       	83133310	        12.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_Uncontended-32       	85301559	        12.87 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_Parallel-32          	65625470	        17.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_Parallel-32          	67499509	        17.74 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_Parallel-32          	68051872	        17.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_DifferentSlots-32    	18535096	        65.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_DifferentSlots-32    	16206655	        86.37 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPackedSpinlock_LockUnlock_DifferentSlots-32    	15586179	        73.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_Uncontended-32             	100000000	        11.36 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_Uncontended-32             	96218931	        11.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_Uncontended-32             	89033121	        11.41 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_Parallel-32                	39772578	        46.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_Parallel-32                	34812295	        41.58 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_Parallel-32                	25631353	        42.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_DifferentSlots-32          	54154813	        21.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_DifferentSlots-32          	56638183	        21.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSpinlock_LockUnlock_DifferentSlots-32          	60067930	        20.21 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Mark-32                            	1000000000	         0.6168 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Mark-32                            	1000000000	         0.6140 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Mark-32                            	1000000000	         0.6117 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Mark_Contended-32                  	1000000000	         0.2010 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Mark_Contended-32                  	1000000000	         0.2011 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Mark_Contended-32                  	1000000000	         0.2257 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_IsVisited-32                       	1000000000	         0.5715 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_IsVisited-32                       	1000000000	         0.5654 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_IsVisited-32                       	1000000000	         0.5669 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Clear-32                           	276764844	         4.310 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Clear-32                           	276731887	         4.316 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedBool_Clear-32                           	278164759	         4.313 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedCounter_Mark-32                         	1000000000	         0.6288 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedCounter_Mark-32                         	1000000000	         0.6268 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedCounter_Mark-32                         	1000000000	         0.6340 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedCounter_Mark_Contended-32               	1000000000	         0.2054 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedCounter_Mark_Contended-32               	1000000000	         0.2047 ns/op	       0 B/op	       0 allocs/op
+BenchmarkVisitedCounter_Mark_Contended-32               	1000000000	         0.2053 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve/exp	69.920s

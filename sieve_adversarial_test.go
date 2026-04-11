@@ -28,7 +28,7 @@ import (
 // --- Edge Case Tests ---
 
 func TestEdge_Capacity1(t *testing.T) {
-	s := sieve.New[int, string](1)
+	s := sieve.Must(sieve.New[int, string](1))
 
 	if s.Cap() != 1 {
 		t.Fatalf("Cap() = %d, want 1", s.Cap())
@@ -53,7 +53,7 @@ func TestEdge_Capacity1(t *testing.T) {
 }
 
 func TestEdge_GetEmptyCache(t *testing.T) {
-	s := sieve.New[string, int](10)
+	s := sieve.Must(sieve.New[string, int](10))
 
 	v, ok := s.Get("nonexistent")
 	if ok {
@@ -65,7 +65,7 @@ func TestEdge_GetEmptyCache(t *testing.T) {
 }
 
 func TestEdge_DeleteNonexistent(t *testing.T) {
-	s := sieve.New[int, int](10)
+	s := sieve.Must(sieve.New[int, int](10))
 
 	if s.Delete(42) {
 		t.Fatal("expected false for deleting from empty cache")
@@ -78,7 +78,7 @@ func TestEdge_DeleteNonexistent(t *testing.T) {
 }
 
 func TestEdge_ProbeInsertsThenReturns(t *testing.T) {
-	s := sieve.New[int, string](4)
+	s := sieve.Must(sieve.New[int, string](4))
 
 	// Probe on miss inserts and returns (val, _, 0)
 	v, _, r := s.Probe(1, "hello")
@@ -100,7 +100,7 @@ func TestEdge_ProbeInsertsThenReturns(t *testing.T) {
 }
 
 func TestEdge_PurgeAndReuse(t *testing.T) {
-	s := sieve.New[int, int](8)
+	s := sieve.Must(sieve.New[int, int](8))
 
 	for i := 0; i < 8; i++ {
 		s.Add(i, i*10)
@@ -141,7 +141,7 @@ func TestEdge_PurgeAndReuse(t *testing.T) {
 }
 
 func TestEdge_AddUpdateReturnValue(t *testing.T) {
-	s := sieve.New[string, int](4)
+	s := sieve.Must(sieve.New[string, int](4))
 
 	// First add: not a hit (new key)
 	_, r := s.Add("x", 1)
@@ -162,7 +162,7 @@ func TestEdge_AddUpdateReturnValue(t *testing.T) {
 }
 
 func TestEdge_DeleteReducesLen(t *testing.T) {
-	s := sieve.New[int, int](16)
+	s := sieve.Must(sieve.New[int, int](16))
 
 	for i := 0; i < 10; i++ {
 		s.Add(i, i)
@@ -185,7 +185,7 @@ func TestEdge_DeleteReducesLen(t *testing.T) {
 
 func TestEdge_LenNeverExceedsCap(t *testing.T) {
 	const cap = 32
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	for i := 0; i < cap*10; i++ {
 		s.Add(i, i)
@@ -205,7 +205,7 @@ func TestConcurrent_DeleteStress(t *testing.T) {
 		opsPerG    = 2000
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Pre-fill
 	for i := 0; i < cacheSize; i++ {
@@ -249,7 +249,7 @@ func TestConcurrent_PurgeUnderLoad(t *testing.T) {
 		purges     = 10
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var wg sync.WaitGroup
 	var stop atomic.Bool
@@ -297,7 +297,7 @@ func TestConcurrent_EvictionStress(t *testing.T) {
 		opsPerG    = 10000
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
@@ -339,7 +339,7 @@ func TestConcurrent_ValueConsistency(t *testing.T) {
 
 	// Values encode the key, so we can detect cross-key contamination.
 	// val = key * 1000 + arbitrary_suffix
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var violations atomic.Int64
 	var wg sync.WaitGroup
@@ -385,7 +385,7 @@ func TestConcurrent_ProbeConsistency(t *testing.T) {
 		keyRange   = cacheSize * 4
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var violations atomic.Int64
 	var wg sync.WaitGroup
@@ -418,7 +418,7 @@ func TestConcurrent_ProbeConsistency(t *testing.T) {
 // --- SIEVE-k Additional Tests ---
 
 func TestSieveK_K2(t *testing.T) {
-	c := sieve.New[string, int](3, sieve.WithVisitClamp(2))
+	c := sieve.Must(sieve.New[string, int](3, sieve.WithVisitClamp(2)))
 
 	c.Add("A", 1)
 	c.Add("B", 2)
@@ -443,7 +443,7 @@ func TestSieveK_K2(t *testing.T) {
 
 func TestSieveK_LargeK(t *testing.T) {
 	// k=7 — uses 3 bits for counter
-	c := sieve.New[int, int](4, sieve.WithVisitClamp(7))
+	c := sieve.Must(sieve.New[int, int](4, sieve.WithVisitClamp(7)))
 
 	c.Add(1, 1)
 	c.Add(2, 2)
@@ -466,7 +466,7 @@ func TestSieveK_LargeK(t *testing.T) {
 }
 
 func TestSieveK_PurgeResetsCounters(t *testing.T) {
-	c := sieve.New[int, int](4, sieve.WithVisitClamp(3))
+	c := sieve.Must(sieve.New[int, int](4, sieve.WithVisitClamp(3)))
 
 	c.Add(1, 1)
 	for i := 0; i < 10; i++ {
@@ -498,7 +498,7 @@ func TestSieveK_PurgeResetsCounters(t *testing.T) {
 // --- Dump/String Validation ---
 
 func TestDump_Format(t *testing.T) {
-	s := sieve.New[int, string](4)
+	s := sieve.Must(sieve.New[int, string](4))
 	s.Add(1, "a")
 	s.Add(2, "b")
 	s.Add(3, "c")
@@ -515,7 +515,7 @@ func TestDump_Format(t *testing.T) {
 }
 
 func TestString_ShowsCapAndSize(t *testing.T) {
-	s := sieve.New[int, int](16)
+	s := sieve.Must(sieve.New[int, int](16))
 	for i := 0; i < 5; i++ {
 		s.Add(i, i)
 	}
@@ -534,7 +534,7 @@ func TestString_ShowsCapAndSize(t *testing.T) {
 // TestChurn_HandWrapAround forces many evictions to exercise hand wrap-around.
 func TestChurn_HandWrapAround(t *testing.T) {
 	const cap = 16
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	// Fill and churn through many iterations
 	for i := 0; i < cap*100; i++ {
@@ -558,7 +558,7 @@ func TestChurn_HandWrapAround(t *testing.T) {
 // TestChurn_DeleteAndRefill tests alternating delete and add patterns.
 func TestChurn_DeleteAndRefill(t *testing.T) {
 	const cap = 32
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	for round := 0; round < 10; round++ {
 		base := round * cap
@@ -588,7 +588,7 @@ func TestChurn_DeleteAndRefill(t *testing.T) {
 // visited bits, wrap around, and evict the first unvisited node.
 func TestEdge_EvictionAllVisited(t *testing.T) {
 	const cap = 8
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	for i := 0; i < cap; i++ {
 		s.Add(i, i*10)
@@ -628,7 +628,7 @@ func TestEdge_EvictionAllVisited(t *testing.T) {
 // across many consecutive evictions.
 func TestEdge_EvictionAllVisited_Repeated(t *testing.T) {
 	const cap = 16
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	// Fill
 	for i := 0; i < cap; i++ {
@@ -655,7 +655,7 @@ func TestEdge_EvictionAllVisited_Repeated(t *testing.T) {
 // TestEdge_NewWithVisits_K0 verifies that NewWithVisits with k=0 is
 // clamped to k=1 and behaves identically to New.
 func TestEdge_NewWithVisits_K0(t *testing.T) {
-	c := sieve.New[int, int](4, sieve.WithVisitClamp(0))
+	c := sieve.Must(sieve.New[int, int](4, sieve.WithVisitClamp(0)))
 
 	c.Add(1, 10)
 	c.Add(2, 20)
@@ -681,7 +681,7 @@ func TestEdge_NewWithVisits_K0(t *testing.T) {
 // TestEdge_Capacity2 tests a 2-entry cache. When cache has 1 item,
 // head == tail. Exercises boundary conditions in list operations.
 func TestEdge_Capacity2(t *testing.T) {
-	s := sieve.New[string, int](2)
+	s := sieve.Must(sieve.New[string, int](2))
 
 	s.Add("a", 1)
 	if s.Len() != 1 {
@@ -724,7 +724,7 @@ func TestEdge_Capacity2(t *testing.T) {
 
 // TestEdge_ProbeAfterDelete verifies that Probe re-inserts a deleted key.
 func TestEdge_ProbeAfterDelete(t *testing.T) {
-	s := sieve.New[string, int](4)
+	s := sieve.Must(sieve.New[string, int](4))
 
 	s.Add("key", 100)
 	s.Delete("key")
@@ -753,7 +753,7 @@ func TestEdge_ProbeAfterDelete(t *testing.T) {
 // evictions doesn't corrupt the cache (exercises stale hand + freelist reuse).
 func TestEdge_DeleteThenEvict(t *testing.T) {
 	const cap = 8
-	s := sieve.New[int, int](cap)
+	s := sieve.Must(sieve.New[int, int](cap))
 
 	// Fill
 	for i := 0; i < cap; i++ {
@@ -794,7 +794,7 @@ func TestConcurrent_PurgeValueCorrectness(t *testing.T) {
 		purges     = 20
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var violations atomic.Int64
 	var gets, adds, hits atomic.Int64
@@ -871,7 +871,7 @@ func TestConcurrent_AddDeleteSameKey(t *testing.T) {
 		keyRange   = 16 // small key range to maximize collisions
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var deletes, adds, getHits, probeHits, violations atomic.Int64
 	var wg sync.WaitGroup
@@ -946,7 +946,7 @@ func TestConcurrent_StaleGetDuringReallocation(t *testing.T) {
 		opsPerG    = 100_000
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var violations atomic.Int64
 	var gets, hits, adds atomic.Int64
@@ -1002,7 +1002,7 @@ func TestConcurrent_ProbeReturnValue(t *testing.T) {
 		keyRange   = 32 // small to force Probe collisions
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var violations atomic.Int64
 	var wg sync.WaitGroup

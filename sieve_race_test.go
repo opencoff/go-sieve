@@ -15,7 +15,7 @@ import (
 func TestTOCTOU_NoDuplicateNodes(t *testing.T) {
 	const goroutines = 100
 
-	s := sieve.New[string, int](goroutines)
+	s := sieve.Must(sieve.New[string, int](goroutines))
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
@@ -50,7 +50,7 @@ func TestTOCTOU_NoDuplicateNodes(t *testing.T) {
 func TestTOCTOU_NoDuplicateNodes_Probe(t *testing.T) {
 	const goroutines = 100
 
-	s := sieve.New[string, int](goroutines)
+	s := sieve.Must(sieve.New[string, int](goroutines))
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
@@ -78,7 +78,7 @@ func TestTOCTOU_ManyKeys(t *testing.T) {
 		opsPerG    = 1000
 	)
 
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
@@ -102,7 +102,7 @@ func TestTOCTOU_ManyKeys(t *testing.T) {
 // BenchmarkGet_Parallel measures concurrent read throughput.
 func BenchmarkGet_Parallel(b *testing.B) {
 	const cacheSize = 8192
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Pre-fill the cache
 	for i := 0; i < cacheSize; i++ {
@@ -121,7 +121,7 @@ func BenchmarkGet_Parallel(b *testing.B) {
 // BenchmarkAdd_Parallel measures concurrent write throughput.
 func BenchmarkAdd_Parallel(b *testing.B) {
 	const cacheSize = 8192
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -136,7 +136,7 @@ func BenchmarkAdd_Parallel(b *testing.B) {
 // BenchmarkMixed_Parallel measures 60% Get / 30% Add / 10% Delete.
 func BenchmarkMixed_Parallel(b *testing.B) {
 	const cacheSize = 8192
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Pre-fill
 	for i := 0; i < cacheSize; i++ {
@@ -163,7 +163,7 @@ func BenchmarkMixed_Parallel(b *testing.B) {
 // BenchmarkProbe_Parallel measures concurrent Probe (insert-if-absent) throughput.
 func BenchmarkProbe_Parallel(b *testing.B) {
 	const cacheSize = 8192
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Pre-fill half the cache so Probe sees a mix of hits and misses
 	for i := 0; i < cacheSize/2; i++ {
@@ -183,7 +183,7 @@ func BenchmarkProbe_Parallel(b *testing.B) {
 // BenchmarkDelete_Parallel measures concurrent Delete throughput.
 func BenchmarkDelete_Parallel(b *testing.B) {
 	const cacheSize = 8192
-	s := sieve.New[int, int](cacheSize)
+	s := sieve.Must(sieve.New[int, int](cacheSize))
 
 	// Pre-fill
 	for i := 0; i < cacheSize; i++ {
@@ -207,7 +207,7 @@ func BenchmarkDelete_Parallel(b *testing.B) {
 func BenchmarkAdd_ContentionStorm(b *testing.B) {
 	for _, keyRange := range []int{1, 4, 16, 64} {
 		b.Run(fmt.Sprintf("Keys_%d", keyRange), func(b *testing.B) {
-			s := sieve.New[int, int](1024)
+			s := sieve.Must(sieve.New[int, int](1024))
 
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
