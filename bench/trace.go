@@ -1,3 +1,5 @@
+//go:build trace
+
 package bench
 
 import (

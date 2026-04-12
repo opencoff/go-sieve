@@ -242,6 +242,86 @@ func BenchmarkParallelGet(b *testing.B) {
 	}
 }
 
+// --- Parallel Replay Benchmarks ---
+//
+// BenchmarkParallelReplay measures the full get-or-insert path on a cold
+// cache with no warmup. Each goroutine walks a trace-indexed ring.
+// Complements BenchmarkParallelGet (warm-cache read-only): together they
+// bracket the steady-state mix of read and write traffic.
+//
+// SIEVE uses Probe; LRU/ARC use the Get+Add idiom (see the helpers comment
+// for why PeekOrAdd is the wrong fit for LRU).
+
+func BenchmarkParallelReplay(b *testing.B) {
+	entries := discoverTraces(b)
+
+	for _, e := range entries {
+		trace := e.trace
+		capacity := trace.Unique / 10
+		if capacity < 1 {
+			capacity = 1
+		}
+
+		b.Run(e.name+"/SieveK1", func(b *testing.B) {
+			c := sieve.Must(sieve.New[uint64, struct{}](capacity))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				n := len(trace.Requests)
+				for pb.Next() {
+					c.Probe(trace.Requests[i%n].Key, struct{}{})
+					i++
+				}
+			})
+		})
+
+		b.Run(e.name+"/SieveK3", func(b *testing.B) {
+			c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				n := len(trace.Requests)
+				for pb.Next() {
+					c.Probe(trace.Requests[i%n].Key, struct{}{})
+					i++
+				}
+			})
+		})
+
+		b.Run(e.name+"/LRU", func(b *testing.B) {
+			c, _ := lru.New[uint64, struct{}](capacity)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				n := len(trace.Requests)
+				for pb.Next() {
+					k := trace.Requests[i%n].Key
+					if _, ok := c.Get(k); !ok {
+						c.Add(k, struct{}{})
+					}
+					i++
+				}
+			})
+		})
+
+		b.Run(e.name+"/ARC", func(b *testing.B) {
+			c, _ := arc.NewARC[uint64, struct{}](capacity)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				i := 0
+				n := len(trace.Requests)
+				for pb.Next() {
+					k := trace.Requests[i%n].Key
+					if _, ok := c.Get(k); !ok {
+						c.Add(k, struct{}{})
+					}
+					i++
+				}
+			})
+		})
+	}
+}
+
 // --- GC Pressure Test ---
 
 func TestGCPressure(t *testing.T) {
@@ -308,17 +388,20 @@ func TestGCPressure(t *testing.T) {
 }
 
 // --- Helpers ---
+//
+// SIEVE replay uses Probe() — a single call that inserts on miss and
+// marks the visited bit on hit. It's the idiomatic API for the
+// get-or-insert pattern a trace replay exercises.
+//
+// LRU and ARC use the Get+Add pattern. Their lookalikes (PeekOrAdd,
+// ContainsOrAdd) deliberately skip the recency update on hit and would
+// corrupt eviction order — so they are the wrong fit for a replay that
+// preserves semantics.
 
-type sieveCache interface {
-	Get(uint64) (struct{}, bool)
-	Add(uint64, struct{}) (sieve.Evicted[uint64, struct{}], sieve.CacheResult)
-}
-
-func replayMisses(c sieveCache, trace *bench.Trace[uint64]) int {
+func replayMisses(c *sieve.Sieve[uint64, struct{}], trace *bench.Trace[uint64]) int {
 	misses := 0
 	for _, r := range trace.Requests {
-		if _, ok := c.Get(r.Key); !ok {
-			c.Add(r.Key, struct{}{})
+		if _, _, res := c.Probe(r.Key, struct{}{}); !res.Hit() {
 			misses++
 		}
 	}
@@ -347,11 +430,9 @@ func replayMissesARC(c *arc.ARCCache[uint64, struct{}], trace *bench.Trace[uint6
 	return misses
 }
 
-func warmup(c sieveCache, trace *bench.Trace[uint64]) {
+func warmup(c *sieve.Sieve[uint64, struct{}], trace *bench.Trace[uint64]) {
 	for _, r := range trace.Requests {
-		if _, ok := c.Get(r.Key); !ok {
-			c.Add(r.Key, struct{}{})
-		}
+		c.Probe(r.Key, struct{}{})
 	}
 }
 

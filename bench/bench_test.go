@@ -1,3 +1,5 @@
+//go:build !trace
+
 package bench_test
 
 import (
@@ -96,6 +98,80 @@ func BenchmarkAdd_Parallel(b *testing.B) {
 			for pb.Next() {
 				k := r.Intn(keyRange)
 				c.Add(k, k)
+			}
+		})
+	})
+}
+
+// BenchmarkProbe_Parallel measures concurrent Probe (get-or-insert)
+// throughput. SIEVE only: LRU and ARC have no semantically-equivalent
+// method — their PeekOrAdd/ContainsOrAdd skip recency promotion, which
+// would degrade eviction quality. See bench/README.md for details.
+func BenchmarkProbe_Parallel(b *testing.B) {
+	const cacheSize = 8192
+	const keyRange = cacheSize * 2
+
+	b.Run("Sieve", func(b *testing.B) {
+		c := sieve.Must(sieve.New[int, int](cacheSize))
+		b.ResetTimer()
+		b.RunParallel(func(pb *testing.PB) {
+			r := rand.New(rand.NewSource(rand.Int63()))
+			for pb.Next() {
+				k := r.Intn(keyRange)
+				c.Probe(k, k)
+			}
+		})
+	})
+}
+
+// BenchmarkDelete_Parallel measures concurrent Delete/Remove throughput.
+// The cache is pre-filled with keyRange entries (keyRange > cacheSize so
+// eviction fires during pre-fill). Goroutines then delete random keys
+// from [0, keyRange); the hit/miss mix shifts toward "not present" as
+// the cache drains, which is representative of delete traffic under
+// churn.
+func BenchmarkDelete_Parallel(b *testing.B) {
+	const cacheSize = 8192
+	const keyRange = cacheSize * 2
+
+	b.Run("Sieve", func(b *testing.B) {
+		c := sieve.Must(sieve.New[int, int](cacheSize))
+		for i := 0; i < keyRange; i++ {
+			c.Add(i, i)
+		}
+		b.ResetTimer()
+		b.RunParallel(func(pb *testing.PB) {
+			r := rand.New(rand.NewSource(rand.Int63()))
+			for pb.Next() {
+				c.Delete(r.Intn(keyRange))
+			}
+		})
+	})
+
+	b.Run("LRU", func(b *testing.B) {
+		c, _ := lru.New[int, int](cacheSize)
+		for i := 0; i < keyRange; i++ {
+			c.Add(i, i)
+		}
+		b.ResetTimer()
+		b.RunParallel(func(pb *testing.PB) {
+			r := rand.New(rand.NewSource(rand.Int63()))
+			for pb.Next() {
+				c.Remove(r.Intn(keyRange))
+			}
+		})
+	})
+
+	b.Run("ARC", func(b *testing.B) {
+		c, _ := arc.NewARC[int, int](cacheSize)
+		for i := 0; i < keyRange; i++ {
+			c.Add(i, i)
+		}
+		b.ResetTimer()
+		b.RunParallel(func(pb *testing.PB) {
+			r := rand.New(rand.NewSource(rand.Int63()))
+			for pb.Next() {
+				c.Remove(r.Intn(keyRange))
 			}
 		})
 	})

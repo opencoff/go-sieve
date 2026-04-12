@@ -72,66 +72,133 @@ polluting `go.mod`.
 Commands used (no name filter — every benchmark in every package runs):
 
 ```
-# Comparison micro-benchmarks:
-cd bench && go test -bench=. -benchmem -count=3
-
-# Trace replay + miss ratio + GC pressure (trace build tag):
-cd bench && go test -tags=trace -bench=. -benchmem -count=1 -v -timeout=240m
+cd bench && make bench    # synthetic comparison, count=3
+cd bench && make trace    # trace replay + miss ratio + GC, count=1
 ```
 
 Full raw results: [`bench-results.md`](bench-results.md).
+
+### Reading the parallel ns/op numbers
+
+The sub-2 ns/op numbers in the parallel tables below are real but need
+context: they are **aggregate throughput**, not per-operation latency.
+
+Go's `b.RunParallel` distributes `b.N` total operations across
+`GOMAXPROCS` goroutines and reports `ns/op = wall_clock / b.N`. When 32
+goroutines complete 1 billion Get()s in ~1 second, the reported number
+is 1.0 ns/op — meaning "the system produces one completed Get every
+~1 ns." The **per-core latency** is ~32 ns (1.0 × 32 cores), which is
+consistent with two L1/L2-hot atomic operations on a 5 GHz CPU.
+
+LRU/ARC report ~200–600 ns/op under the same conditions — not because a
+single Get is 200x slower, but because every Get takes a mutex. The 32
+goroutines serialize through one lock, so throughput is flat regardless
+of core count. On a single goroutine (see `BenchmarkReplay`,
+sequential), SIEVE and LRU are within 15% of each other — the
+**~100–300x gap is a concurrency-scaling story, not a raw-speed story**.
+
+`go-sieve`'s `Get()` is faster because it has no shared serialization point:
+one atomic `Load` on an xsync.MapOf bucket, one atomic CAS on the
+per-slot visited bit — three cache lines, no mutex. Thirty-two cores
+operate independently; throughput scales linearly with core count.
+
+After warmup, the working data structures (map buckets, node array,
+visited bitfield) are resident in CPU cache — L1/L2 for small traces,
+L3 for larger ones. Real workloads with lower temporal locality will
+see higher per-core latency, but the relative advantage over
+mutex-bound LRU/ARC holds whenever there is any parallelism at all.
 
 ### Parallel Micro-Benchmarks (`count=3`, medians)
 
 | Benchmark | Sieve | LRU | ARC |
 |-----------|-------|-----|-----|
-| `Get_Parallel` | **2.49 ns/op, 0 B** | 223.7 ns/op, 0 B | 245.0 ns/op, 0 B |
-| `Add_Parallel` | **157.1 ns/op, 8 B** | 188.8 ns/op, 40 B | 366.6 ns/op, 74 B |
-| `Mixed_Parallel` (80/20) | **141.4 ns/op, 2 B** | 213.6 ns/op, 12 B | 221.3 ns/op, 24 B |
-| `Zipf_Get_Parallel` (s=1.01) | **16.7 ns/op** | 189.3 ns/op | 196.6 ns/op |
-| Memory @ 1M fill | 122 MB, 1.10M allocs | 156 MB, 1.01M allocs | 156 MB, 1.01M allocs |
-| `GCImpact` | **5.83 ms/op**, 9.8 KB/op | 10.65 ms/op, 28 KB/op | 10.51 ms/op, 116 KB/op |
+| `Get_Parallel` | **2.36 ns/op, 0 B** | 563.2 ns/op, 0 B | 606.7 ns/op, 0 B |
+| `Add_Parallel` | **426.9 ns/op, 8 B** | 527.0 ns/op, 40 B | 1020 ns/op, 76 B |
+| `Probe_Parallel` | **378.4 ns/op, 8 B** | — | — |
+| `Delete_Parallel` | 230.1 ns/op, 0 B | **163.1 ns/op, 0 B** | 253.9 ns/op, 0 B |
+| `Mixed_Parallel` (60/30/10) | **344.1 ns/op, 2 B** | 602.7 ns/op, 12 B | 637.9 ns/op, 24 B |
+| `Zipf_Get_Parallel` (s=1.01) | **16.5 ns/op** | 472.5 ns/op | 396.7 ns/op |
+| Memory @ 1M fill | **122 MB**, 1.10M allocs | 156 MB, 1.01M allocs | 156 MB, 1.01M allocs |
+| `GCImpact` | **9.22 ms/op**, 9.8 KB/op | 13.64 ms/op, 26.3 KB/op | 14.26 ms/op, 117.2 KB/op |
 
-Sieve's `Get()` is **~90x faster** than LRU/ARC on the parallel read path and
-is fully lock-free. Adds are 1.2–2.3x faster with 5–9x fewer bytes per op.
-Memory footprint at a 1M-entry fill is 22% lower than LRU/ARC.
+`Probe_Parallel` is SIEVE-only — LRU's `PeekOrAdd` and `ContainsOrAdd`
+skip recency promotion and are not semantic equivalents. `Delete_Parallel`
+is the one micro where SIEVE loses: LRU's single-lock linked-list unlink
+edges out SIEVE's slot-state clear (163 vs 230 ns/op). ARC is slowest
+(254 ns/op) because its T1/T2/B1/B2 bookkeeping doubles the work.
 
 ## Trace Replay Results
 
-Validated against real-world cache traces from the
+This implmentation is validated against real-world cache traces from the
 [libCacheSim](https://cachelib.org/) trace repository — 14 MSR Cambridge
 enterprise block I/O traces + 5 Meta Storage (Tectonic) block traces
 totalling ~300M requests. Each trace was replayed with a cache sized at
 10% of unique keys, comparing SIEVE (k=1, k=2, k=3) against
 hashicorp/golang-lru (LRU and ARC).
 
-### Parallel Get throughput (32 goroutines, ns/op, zero allocs)
+### Parallel Get throughput (warm cache, 32 goroutines, ns/op, zero allocs)
 
 SIEVE's lock-free `Get()` is **~100–300x faster** than LRU/ARC under
 concurrent read load. Every trace, every cache:
 
 | Trace | SIEVE k=1 | SIEVE k=3 | LRU | ARC |
 |-------|---------:|---------:|----:|----:|
-| msr_web_2 | **1.03** | 1.02 | 300.6 | 404.7 |
-| msr_proj_4 | **1.22** | 1.24 | 379.6 | 549.6 |
-| meta_storage/block_traces_1 | **1.30** | 1.42 | 286.5 | 384.7 |
-| meta_storage/block_traces_2 | **1.36** | 1.55 | 280.1 | 419.6 |
-| meta_storage/block_traces_3 | **1.54** | 1.55 | 276.5 | 400.0 |
-| meta_storage/block_traces_4 | **1.58** | 1.58 | 279.7 | 499.2 |
-| msr_prn_1 | **1.59** | 1.60 | 349.4 | 384.5 |
-| meta_storage/block_traces_5 | **1.61** | 1.63 | 269.5 | 409.4 |
-| msr_prxy_0 | **1.74** | 1.95 | 285.7 | 434.0 |
-| msr_src1_0 | **2.03** | 2.01 | 322.3 | 521.5 |
-| msr_usr_2 | **2.10** | 2.10 | 363.5 | 546.7 |
-| msr_src1_1 | **2.22** | 2.32 | 426.9 | 613.7 |
-| msr_usr_1 | **2.25** | 2.33 | 391.0 | 603.2 |
-| msr_proj_1 | **2.90** | 2.97 | 336.2 | 507.8 |
-| msr_proj_2 | **2.91** | 2.95 | 358.0 | 450.8 |
-| msr_proj_0 | **5.21** | 6.05 | 351.1 | 458.6 |
-| msr_hm_0 | **7.26** | 7.86 | 347.2 | 448.1 |
-| msr_prn_0 | **10.35** | 11.54 | 289.3 | 433.1 |
+| msr_web_2 | **1.02** | 1.04 | 182.6 | 377.5 |
+| meta_storage/block_traces_1 | **1.29** | 1.44 | 232.1 | 360.2 |
+| meta_storage/block_traces_2 | **1.30** | 1.51 | 257.2 | 358.9 |
+| msr_proj_4 | **1.31** | 1.23 | 360.7 | 479.1 |
+| meta_storage/block_traces_3 | **1.50** | 1.60 | 264.9 | 458.0 |
+| meta_storage/block_traces_4 | **1.55** | 1.62 | 234.1 | 449.2 |
+| msr_prn_1 | **1.56** | 1.59 | 321.4 | 381.6 |
+| meta_storage/block_traces_5 | **1.59** | 1.70 | 222.5 | 348.6 |
+| msr_prxy_0 | **1.76** | 2.27 | 313.5 | 363.3 |
+| msr_usr_2 | **2.03** | 2.12 | 344.5 | 502.0 |
+| msr_src1_1 | **2.19** | 2.28 | 394.8 | 587.4 |
+| msr_usr_1 | **2.32** | 2.26 | 395.0 | 536.9 |
+| msr_proj_2 | **2.79** | 3.03 | 280.8 | 460.6 |
+| msr_proj_1 | **2.91** | 2.89 | 334.6 | 483.3 |
+| msr_src1_0 | **4.85** | 4.89 | 336.4 | 443.6 |
+| msr_proj_0 | **5.24** | 5.67 | 294.6 | 407.5 |
+| msr_hm_0 | **6.61** | 7.12 | 275.6 | 455.2 |
+| msr_prn_0 | **9.21** | 10.41 | 288.0 | 402.3 |
 
-The k=3 saturating counter adds under 5% overhead to the read path.
+The k=3 saturating counter adds under 10% overhead to the read path.
+This benchmark pre-warms the cache with a full trace replay, then hammers
+`Get()` only — the ideal scenario for a read-heavy cache in steady state.
+
+### Parallel Replay throughput (cold cache, mixed read+write, 32 goroutines, ns/op)
+
+This is `Probe()` for SIEVE and `Get+Add` for LRU/ARC, hammered in
+parallel with **no warmup**. It measures the steady-state workload a real
+cache faces: reads and writes interleaved, evictions happening live. The
+previous table's numbers reflect the best-case read ceiling; this table
+reflects what throughput you actually get when your cache is doing work.
+
+| Trace | SIEVE k=1 | SIEVE k=3 | LRU | ARC |
+|-------|---------:|---------:|----:|----:|
+| msr_prxy_0 | **6.45** | 6.61 | 401.3 | 431.0 |
+| msr_prn_0 | **14.90** | 15.49 | 481.7 | 497.1 |
+| meta_storage/block_traces_4 | **16.01** | 16.75 | 469.5 | 453.0 |
+| meta_storage/block_traces_1 | **16.15** | 18.48 | 440.7 | 486.5 |
+| msr_proj_0 | **16.36** | 15.86 | 422.8 | 471.8 |
+| msr_prn_1 | **16.50** | 18.88 | 421.4 | 491.6 |
+| meta_storage/block_traces_2 | **16.69** | 16.85 | 454.9 | 525.0 |
+| meta_storage/block_traces_3 | **16.74** | 17.71 | 434.4 | 501.3 |
+| meta_storage/block_traces_5 | **17.05** | 16.65 | 449.6 | 519.8 |
+| msr_hm_0 | **19.18** | 17.29 | 447.8 | 499.7 |
+| msr_usr_2 | **19.04** | 19.13 | 431.5 | 545.2 |
+| msr_proj_4 | **20.20** | 20.71 | 416.4 | 438.8 |
+| msr_usr_1 | **21.64** | 23.53 | 441.6 | 418.7 |
+| msr_src1_1 | **21.96** | 20.60 | 429.2 | 526.0 |
+| msr_src1_0 | **22.34** | 25.78 | 402.0 | 461.8 |
+| msr_proj_1 | **22.46** | 22.27 | 426.8 | 446.2 |
+| msr_proj_2 | **22.81** | 22.03 | 441.2 | 529.0 |
+| msr_web_2 | **24.35** | 25.41 | 436.6 | 466.3 |
+
+Under concurrent cold-cache replay, SIEVE is **~18–62x faster** than
+LRU/ARC. The best case is `msr_prxy_0` (95% hits, so the lock-free fast
+path dominates); the worst case is `msr_web_2` (98% miss ratio, almost
+every call takes the write lock) — and even there SIEVE is 18x faster.
 
 ### Miss ratio (every trace)
 

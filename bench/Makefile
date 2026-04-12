@@ -1,61 +1,74 @@
-# Makefile for go-sieve benchmarks
+# Makefile for the bench/ module (comparison benchmarks + trace replay).
 #
 # Targets:
-#   all         - run synthetic + trace benchmarks (no miss ratio / GC tests)
-#   synthetic   - all synthetic micro-benchmarks (no trace data needed)
-#   traces      - trace replay throughput + parallel get (requires trace data)
-#   miss-ratio  - miss ratio comparison across all traces
-#   gc-pressure - GC pressure test across all traces
-#   clean       - remove generated result files
+#   bench   - synthetic comparison benchmarks (SIEVE vs LRU vs ARC)
+#   trace   - trace replay benchmarks + miss-ratio + GC-pressure tests
+#   test    - compile-check (bench module has no Test* without -tags=trace)
+#   race    - compile-check under -race
+#   clean   - remove generated result files
 #
-# Trace data expected in DATADIR (default: ../data/).
-# Fetch with: ./fetch-traces.sh
+# Build tags cleanly separate the two worlds — no -bench=FILTER expression
+# is used anywhere:
+#   bench_test.go   has //go:build !trace  (synth only)
+#   trace.go        has //go:build trace   (parser library)
+#   trace_test.go   has //go:build trace   (parser smoke tests)
+#   replay_test.go  has //go:build trace   (replay + miss-ratio + GC)
 #
-# Trace-driven tests and benchmarks are guarded by the `trace` build tag;
-# the relevant targets below pass -tags=trace automatically.
+# So `go test -bench=.` picks up exactly one of the two sets depending on
+# whether -tags=trace is passed.
+#
+# Trace data expected in DATADIR (default: ../data/). Fetch with:
+#   ./fetch-traces.sh
 
 SHELL       := /bin/bash
 GOTEST      := go test
-TRACETAGS   := -tags=trace
 COUNT       := 3
 TRACE_COUNT := 1
 TIMEOUT     := 60m
 DATADIR     := ../data
 
-# Output files
-OUT_SYNTHETIC  := results/synthetic.txt
-OUT_REPLAY     := results/replay.txt
-OUT_MISSRATIO  := results/miss_ratio.txt
-OUT_GCPRESSURE := results/gc_pressure.txt
+OUT_BENCH := results/synthetic.txt
+OUT_TRACE := results/trace.txt
 
-.PHONY: all synthetic traces miss-ratio gc-pressure clean check-traces
+.DEFAULT_GOAL := help
+.PHONY: help all bench trace test race clean check-traces
 
-all: synthetic traces miss-ratio gc-pressure
+help:
+	@echo "bench/Makefile — comparison benchmarks and trace replay"
+	@echo ""
+	@echo "Targets:"
+	@echo "  bench  - synthetic comparison benchmarks (SIEVE vs LRU vs ARC)"
+	@echo "           -> $(OUT_BENCH)"
+	@echo "  trace  - trace replay + miss-ratio + GC-pressure (needs $(DATADIR))"
+	@echo "           -> $(OUT_TRACE)"
+	@echo "  test   - go test (compile-check; no Test* without -tags=trace)"
+	@echo "  race   - go test -race (compile-check under race detector)"
+	@echo "  all    - bench + trace"
+	@echo "  clean  - remove generated result files"
+	@echo "  help   - this message (default)"
 
-synthetic:
+all: bench trace
+
+bench:
 	@mkdir -p results
-	$(GOTEST) -bench=. -benchmem -count=$(COUNT) -timeout=$(TIMEOUT) | tee $(OUT_SYNTHETIC)
+	$(GOTEST) -bench=. -benchmem -count=$(COUNT) -timeout=$(TIMEOUT) | tee $(OUT_BENCH)
 
-traces: check-traces
+trace: check-traces
 	@mkdir -p results
-	$(GOTEST) $(TRACETAGS) -run='^$$' \
-		-bench='BenchmarkReplay|BenchmarkParallelGet' \
-		-benchmem -count=$(TRACE_COUNT) -timeout=$(TIMEOUT) | tee $(OUT_REPLAY)
+	$(GOTEST) -tags=trace -bench=. -benchmem -count=$(TRACE_COUNT) -v -timeout=$(TIMEOUT) | tee $(OUT_TRACE)
 
-miss-ratio: check-traces
-	@mkdir -p results
-	$(GOTEST) $(TRACETAGS) -run=TestMissRatio -v -timeout=$(TIMEOUT) | tee $(OUT_MISSRATIO)
+test:
+	$(GOTEST) -count=1
 
-gc-pressure: check-traces
-	@mkdir -p results
-	$(GOTEST) $(TRACETAGS) -run=TestGCPressure -v -timeout=$(TIMEOUT) | tee $(OUT_GCPRESSURE)
+race:
+	$(GOTEST) -race -count=1
 
 check-traces:
 	@if [ ! -d $(DATADIR) ]; then \
-		echo "ERROR: Trace data not found at $(DATADIR)"; \
-		echo "Run ./fetch-traces.sh to download trace files."; \
+		echo "ERROR: trace data missing at $(DATADIR)."; \
+		echo "Run ./fetch-traces.sh to download it."; \
 		exit 1; \
 	fi
 
 clean:
-	rm -f $(OUT_SYNTHETIC) $(OUT_REPLAY) $(OUT_MISSRATIO) $(OUT_GCPRESSURE)
+	rm -f $(OUT_BENCH) $(OUT_TRACE)

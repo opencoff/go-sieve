@@ -7,15 +7,50 @@ are picked up immediately without publishing.
 
 ## Contents
 
-| File | Purpose |
-|------|---------|
-| `bench_test.go` | Synthetic micro-benchmarks: parallel Get/Add/Mixed, memory footprint, GC impact. Compares Sieve vs LRU vs ARC. |
-| `trace.go` | Trace file parsers: `LoadCSV` (Twitter, Meta CDN) and `LoadOracleGeneral` (mmap-based binary parser). |
-| `trace_test.go` | Smoke tests that load each trace format and print request count / unique keys. |
-| `replay_test.go` | Trace-replay harness: `TestMissRatio`, `BenchmarkReplay`, `BenchmarkParallelGet`, `TestGCPressure`. |
-| `fetch-traces.sh` | Downloads and decompresses trace datasets (see below). |
-| `trace-bench-design.md` | Design document for the SIEVE-k extension and trace benchmarks. |
-| `results/` | Saved benchmark output for benchstat comparison. |
+| File | Build tag | Purpose |
+|------|-----------|---------|
+| `doc.go` | (none) | Stub `package bench` declaration; always present. |
+| `bench_test.go` | `!trace` | Synthetic micro-benchmarks: parallel Get/Add/Probe/Delete/Mixed, memory footprint, GC impact. Compares Sieve vs LRU vs ARC. |
+| `trace.go` | `trace` | Trace file parsers: `LoadCSV` (Twitter, Meta CDN) and `LoadOracleGeneral` (mmap-based binary parser). |
+| `trace_test.go` | `trace` | Smoke tests that load each trace format and print request count / unique keys. |
+| `replay_test.go` | `trace` | Trace-replay harness: `TestMissRatio`, `BenchmarkReplay`, `BenchmarkParallelGet`, `BenchmarkParallelReplay`, `TestGCPressure`. |
+| `fetch-traces.sh` | — | Downloads and decompresses trace datasets (see below). |
+| `trace-bench-design.md` | — | Design document for the SIEVE-k extension and trace benchmarks. |
+| `results/` | — | Saved benchmark output for benchstat comparison. |
+
+The `!trace` / `trace` tags are mutually exclusive: `go test -bench=.` without
+`-tags=trace` picks up only the synth benchmarks; with `-tags=trace`, only the
+trace benchmarks + tests. The Makefile leverages this so no `-bench=FILTER`
+regex is needed anywhere.
+
+## API asymmetry: SIEVE replay uses Probe, LRU/ARC use Get+Add
+
+The trace-replay harness and `BenchmarkProbe_Parallel` use `sieve.Probe()`
+for SIEVE — a single call that inserts on miss and marks the visited bit
+on hit. It's the idiomatic API for the get-or-insert pattern a trace
+replay exercises, and it preserves SIEVE's promotion semantics exactly
+(both `Get` and `Probe` call `LockAndMark` on hit).
+
+LRU and ARC use the `Get` + `Add`-on-miss idiom. Their superficial
+lookalikes are **not** semantic equivalents:
+
+| Method | Promotes recency on hit? |
+|--------|:-:|
+| `lru.Cache.ContainsOrAdd` | No — uses `Contains` |
+| `lru.Cache.PeekOrAdd`     | No — uses `Peek` |
+| `arc.ARCCache.*OrAdd`     | Does not exist |
+
+Both LRU lookalikes deliberately skip recency promotion on the hit path.
+Using them in a replay harness would corrupt LRU's eviction order (items
+would never get re-promoted) and inflate its miss ratio. The honest
+comparison therefore uses each library's idiomatic pattern:
+
+- **SIEVE** — `Probe(k, v)` (one call, TOCTOU-safe)
+- **LRU/ARC** — `Get(k)` fast path, fallback to `Add(k, v)` on miss
+
+Miss ratios remain comparable because the sequence of nodes visited and
+evicted is identical; only the SIEVE call path collapses into one
+function invocation.
 
 ## Trace Datasets
 
@@ -77,11 +112,13 @@ Prerequisites: `zstd` (`brew install zstd`), `curl` or `wget`.
 
 ## What We Measured
 
-### 1. Miss Ratio (`TestMissRatio`)
+### Trace-driven (`-tags=trace`, requires `../data/`)
+
+#### 1. Miss Ratio (`TestMissRatio`)
 
 For each trace, we create a cache sized at **10% of unique keys** and replay
-every request sequentially: `Get()`, on miss `Add()`. We compare five cache
-variants:
+every request sequentially. SIEVE uses `Probe()`; LRU/ARC use `Get+Add`.
+We compare five cache variants:
 
 - **SIEVE k=1** — classic single-bit visited flag
 - **SIEVE k=2** — 2-bit saturating counter (survives 2 eviction passes)
@@ -89,56 +126,115 @@ variants:
 - **LRU** — hashicorp/golang-lru
 - **ARC** — hashicorp/golang-lru/arc (adaptive replacement cache)
 
-### 2. Sequential Replay Throughput (`BenchmarkReplay`)
+#### 2. Sequential Replay Throughput (`BenchmarkReplay`)
 
 Same replay loop as miss ratio, but measured as a Go benchmark with
 `-benchmem`. Reports ns/op, bytes/op, allocs/op, and miss ratio per
-iteration. Exercises the full Add+Get+eviction path.
+iteration. Exercises the full get-or-insert + eviction path.
 
-### 3. Parallel Get Throughput (`BenchmarkParallelGet`)
+#### 3. Parallel Get Throughput (`BenchmarkParallelGet`)
 
-Warms the cache with a full replay, then hammers `Get()` from
-`GOMAXPROCS` goroutines using `b.RunParallel`. This isolates the
+Pre-warms the cache with a full replay, then hammers `Get()` from
+`GOMAXPROCS` goroutines using `b.RunParallel`. Isolates the
 lock-free read path — the headline number for concurrent read-heavy
-workloads.
+workloads where the cache is already warm.
 
-### 4. GC Pressure (`TestGCPressure`)
+#### 4. Parallel Replay Throughput (`BenchmarkParallelReplay`)
+
+Starts with a cold cache, no warmup. Goroutines hammer the trace
+through `Probe()` (SIEVE) or `Get+Add` (LRU/ARC) in parallel. This is
+the complement to `BenchmarkParallelGet`: together they bracket the
+steady-state workload. `BenchmarkParallelGet` shows the warm-read
+ceiling; `BenchmarkParallelReplay` shows throughput when misses, writes,
+and evictions are still happening alongside reads.
+
+#### 5. GC Pressure (`TestGCPressure`)
 
 Replays a trace and measures `runtime.MemStats` deltas: NumGC,
 PauseTotalNs, TotalAlloc, HeapObjects. Shows the memory efficiency
 advantage of the array-backed design.
 
+### Synthetic (no trace tag, no data required)
+
+| Benchmark | SIEVE | LRU | ARC | Notes |
+|---|:-:|:-:|:-:|---|
+| `BenchmarkGet_Parallel` | yes | yes | yes | Warm cache, uniform random Get |
+| `BenchmarkAdd_Parallel` | yes | yes | yes | Random Add over 2x cache-size key range |
+| `BenchmarkProbe_Parallel` | yes | – | – | SIEVE only — see API asymmetry section |
+| `BenchmarkDelete_Parallel` | yes | yes | yes | Pre-fill 2x cache-size, then parallel Delete |
+| `BenchmarkMixed_Parallel` | yes | yes | yes | 60% Get / 30% Add / 10% Delete |
+| `BenchmarkZipf_Get_Parallel` | yes | yes | yes | Zipfian distribution, three skews |
+| `BenchmarkMemoryFootprint` | yes | yes | yes | HeapAlloc delta at 100k / 500k / 1M fill |
+| `BenchmarkGCImpact` | yes | yes | yes | GC pause at 1M entries under mixed workload |
+
+`BenchmarkProbe_Parallel` is SIEVE-only because LRU's `PeekOrAdd` /
+`ContainsOrAdd` skip recency promotion and are not semantic
+equivalents (see the asymmetry section above). ARC has no Probe-like
+method at all.
+
 ## Running
+
+The Makefile is the canonical entry point — it uses the build-tag
+separation described above to run the right benchmark set for each
+target, with no `-bench=FILTER` regex anywhere.
 
 ```bash
 cd bench
 
-# --- Trace replay ---
+# Synthetic comparison benchmarks (no trace data needed).
+# Writes results/synthetic.txt.
+make bench
 
-# Miss ratios (prints table, ~15 min for all traces)
-go test -run=TestMissRatio -v -timeout=30m
+# Trace replay + miss ratio + GC pressure (requires ../data/).
+# Writes results/trace.txt.
+make trace
 
-# Sequential throughput (use -run='^$' to skip tests)
-go test -run='^$' -bench=BenchmarkReplay -benchmem -count=6 -timeout=60m \
-    > results/baseline.txt
+# Compile-check (no Test* functions without trace tag, so effectively a
+# type-check pass).
+make test
+make race
 
-# Parallel Get throughput
-go test -run='^$' -bench=BenchmarkParallelGet -benchmem -count=6 -timeout=30m \
-    >> results/baseline.txt
+# Clean results.
+make clean
+```
 
-# GC pressure
-go test -run=TestGCPressure -v -timeout=10m
+From the repo root, there's also a top-level `Makefile` that cascades
+into `bench/`:
 
-# --- Subset of traces (faster iteration) ---
-# Use -bench regex to filter by trace name:
-go test -run='^$' -bench='BenchmarkReplay/msr_2007/msr_hm_0/' \
-    -benchmem -count=6
+```bash
+# From repo root:
+make test    # parent tests + bench compile-check
+make race    # parent race tests + bench race compile-check
+make bench   # parent SIEVE regression benches + bench comparison benches
+make trace   # trace replay (delegates to bench/)
+make all     # everything
+```
 
-# --- Synthetic micro-benchmarks (no trace data needed) ---
-go test -bench='Benchmark(Get|Add|Mixed)_' -benchmem -count=6
+### Running a subset
 
-# --- Compare before/after with benchstat ---
-benchstat results/baseline.txt results/after.txt
+If you want to filter to a single trace or benchmark for faster
+iteration, invoke `go test` directly — the Makefile deliberately does
+not offer filter flags:
+
+```bash
+cd bench
+
+# One trace:
+go test -tags=trace -bench='BenchmarkReplay/msr_2007/msr_hm_0/' \
+    -benchmem -count=3
+
+# One synth benchmark:
+go test -bench=BenchmarkProbe_Parallel -benchmem -count=6
+```
+
+### benchstat
+
+```bash
+# Save a baseline, make changes, compare:
+cp results/synthetic.txt results/baseline.txt
+# ... edit code ...
+make bench
+benchstat results/baseline.txt results/synthetic.txt
 ```
 
 ## Running With Your Own Traces
@@ -168,10 +264,45 @@ curated numbers. Raw output files are committed under `results/`.
 
 Headline numbers from the current run:
 
-- **Parallel `Get()`**: 1.0–10 ns/op across all 18 replayed traces vs
-  ~270–620 ns/op for LRU/ARC. ~100–300x faster.
+- **Parallel `Get()`**: 1.0–9.2 ns/op across all 18 replayed traces vs
+  ~180–590 ns/op for LRU/ARC. ~100–300x faster. This is the warm-cache
+  read ceiling from `BenchmarkParallelGet`.
+- **Parallel Replay**: 6.4–25 ns/op for SIEVE vs ~400–550 ns/op for
+  LRU/ARC (~18–62x faster). This is the cold-cache steady-state
+  workload from `BenchmarkParallelReplay`.
 - **Miss ratio**: SIEVE k=1 beats LRU on 13 of 18 traces, ties or beats
   ARC on 7 of 18. SIEVE k=3 produces the best overall miss ratio on
   msr_prn_1 (0.3796 vs LRU 0.4341, ARC 0.4148).
 - **Memory during replay**: 2.7x less than LRU, 6.5x less than ARC on
   the 13.2M-request meta_storage/block_traces_1 trace.
+
+### Understanding the parallel ns/op numbers
+
+The sub-2 ns/op numbers from `BenchmarkParallelGet` are real but need
+context: they are **aggregate throughput**, not per-operation latency.
+
+Go's `b.RunParallel` distributes `b.N` total operations across
+`GOMAXPROCS` goroutines and reports `ns/op = wall_clock / b.N`. When
+32 goroutines complete 1 billion Get()s in ~1 second, the reported
+number is ~1.0 ns/op — meaning "the system produces one completed Get
+every ~1 ns." The **per-core latency** is ~32 ns (1.0 × 32 cores),
+which is consistent with two L1/L2-hot atomic operations on a 5 GHz
+CPU.
+
+This works because SIEVE's `Get()` has no shared serialization point:
+one atomic `Load` on an xsync.MapOf bucket, one atomic CAS on the
+per-slot visited bit — three cache lines, no mutex. Thirty-two cores
+operate independently; throughput scales linearly with core count.
+
+LRU/ARC report ~200–600 ns/op under the same conditions — not because a
+single Get is 200x slower, but because every Get takes a mutex. The 32
+goroutines serialize through one lock, so throughput is flat regardless
+of core count. On a single goroutine (see `BenchmarkReplay`,
+sequential), SIEVE and LRU are within 15% of each other — the
+**~100–300x gap is a concurrency-scaling story, not a raw-speed story**.
+
+After warmup, the working data structures (map buckets, node array,
+visited bitfield) are resident in CPU cache — L1/L2 for small traces,
+L3 for larger ones. Real workloads with lower temporal locality will
+see higher per-core latency, but the relative advantage over
+mutex-bound LRU/ARC holds whenever there is any parallelism at all.
