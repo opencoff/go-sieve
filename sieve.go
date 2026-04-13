@@ -33,7 +33,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // MaxCapacity is the largest value accepted by New for the cache capacity.
@@ -210,7 +210,7 @@ func New[K comparable, V any](capacity int, opts ...Option) (*Sieve[K, V], error
 	// +1 for sentinel in slot array to keep indexing aligned
 	total := capacity + 1
 	s := &Sieve[K, V]{
-		cache: xsync.NewMapOf[K, int32](),
+		cache: xsync.NewMap[K, int32](xsync.WithPresize(capacity)),
 		hand:  sentinelIdx,
 		slots: newSlotState(total, cfg.k),
 	}

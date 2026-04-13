@@ -12,6 +12,6 @@ require (
 )
 
 require (
-	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
+	github.com/puzpuzpuz/xsync/v4 v4.4.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 )
