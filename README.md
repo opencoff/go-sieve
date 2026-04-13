@@ -31,7 +31,7 @@ visited bits until it finds an unvisited node (quick demotion). It matches
 or exceeds LRU/ARC hit ratios with far less bookkeeping — validated here on
 ~300M requests from the MSR Cambridge and Meta Storage trace repositories.
 
-## Key Design Decisions
+## Key Design Elements
 
 **Array-backed indexed list.** [Marc Brooker observed](https://brooker.co.za/blog/2023/12/15/sieve.html)
 that SIEVE's mid-list removal prevents a simple circular buffer. Rather than
@@ -41,17 +41,28 @@ This preserves SIEVE's exact eviction semantics while eliminating all interior
 pointers — the GC sees a flat `[]node` with no pointers to trace (for
 non-pointer `K`, `V` types).
 
-**Packed visited bitfield.** Per-node `atomic.Bool` (4 bytes each, aligned to
-`uint32`) is replaced by a shared `[]uint64` bitfield. `Test()` is a single
-`atomic.LoadUint64` — zero write contention on the read path. `Set()`/`Clear()`
-use CAS loops with early exit when the bit is already in the desired state.
-For a 1M-entry cache this is 16 KB instead of 4 MB.
-
 **xsync.MapOf for concurrent access.** The key→index map uses
 [puzpuzpuz/xsync.MapOf](https://github.com/puzpuzpuz/xsync) which stores
 `int32` values inline in cache-line-padded buckets — no traced pointers per
 entry. `Get()` is fully lock-free; only `Add()`/`Probe()` (on miss) and
 `Delete()` take the global mutex.
+
+**Columnar slot state (`slotState`).** Each node's lock and visited
+counter are hoisted out of the `node` struct into a separate contiguous
+`[]uint64` — one word per slot, laid out as a column alongside the
+`[]node` array. This columnar split has three effects:
+
+1. the eviction hand scans `IsVisited` by walking a dense `[]uint64` sequentially —
+   8 slots per cache line, hardware-prefetch friendly — without pulling in
+   key/val data it doesn't need;
+2. `Get()`'s `LockAndMark` writes only to the `slotState` word for that slot,
+   so it never dirties the cache line holding the node's key/val — no false
+   sharing with concurrent readers of adjacent nodes
+3. `[]uint64` contains no pointers, so the GC never traces it, unlike node fields
+   that may hold pointer-typed K/V.
+
+Within each word, bit 63 is a spinlock and the low bits are a
+saturating visited counter (1 bit at k=1, ⌈log₂(k+1)⌉ bits for higher k).
 
 **Pre-allocated node pool.** All nodes are allocated once at cache creation in
 a contiguous array. A bump allocator + intrusive freelist (reusing `node.next`)
@@ -65,9 +76,13 @@ same key.
 ## Benchmark Results
 
 Benchmarked against [hashicorp/golang-lru v2.0.7](https://github.com/hashicorp/golang-lru)
-(LRU and ARC) on a 13th Gen Intel Core i9-13900, Linux, Go 1.26.1,
-`GOMAXPROCS=32`. Benchmarks live in `bench/` as a separate module to avoid
-polluting `go.mod`.
+(LRU and ARC) on a 13th Gen Intel Core i9-13900 with 32 cores and 32GB of RAM:
+
+- Ubuntu/Linux 24.04 (kernel 6.8.0-106)
+- `go1.26.1`
+- `GOMAXPROCS=32`
+
+Benchmarks live in `bench/` as a separate module to avoid polluting `go.mod`.
 
 Commands used (no name filter — every benchmark in every package runs):
 
@@ -81,7 +96,7 @@ Full raw results: [`bench-results.md`](bench-results.md).
 ### Reading the parallel ns/op numbers
 
 The sub-2 ns/op numbers in the parallel tables below are real but need
-context: they are **aggregate throughput**, not per-operation latency.
+context: they are **aggregate throughput**.
 
 Go's `b.RunParallel` distributes `b.N` total operations across
 `GOMAXPROCS` goroutines and reports `ns/op = wall_clock / b.N`. When 32
@@ -95,12 +110,7 @@ single Get is 200x slower, but because every Get takes a mutex. The 32
 goroutines serialize through one lock, so throughput is flat regardless
 of core count. On a single goroutine (see `BenchmarkReplay`,
 sequential), SIEVE and LRU are within 15% of each other — the
-**~100–300x gap is a concurrency-scaling story, not a raw-speed story**.
-
-`go-sieve`'s `Get()` is faster because it has no shared serialization point:
-one atomic `Load` on an xsync.MapOf bucket, one atomic CAS on the
-per-slot visited bit — three cache lines, no mutex. Thirty-two cores
-operate independently; throughput scales linearly with core count.
+**~100–300x gap is a concurrency-scaling story**.
 
 After warmup, the working data structures (map buckets, node array,
 visited bitfield) are resident in CPU cache — L1/L2 for small traces,
@@ -129,7 +139,7 @@ edges out SIEVE's slot-state clear (163 vs 230 ns/op). ARC is slowest
 
 ## Trace Replay Results
 
-This implmentation is validated against real-world cache traces from the
+This implmentation is benchmarked against real-world cache traces from the
 [libCacheSim](https://cachelib.org/) trace repository — 14 MSR Cambridge
 enterprise block I/O traces + 5 Meta Storage (Tectonic) block traces
 totalling ~300M requests. Each trace was replayed with a cache sized at
@@ -220,17 +230,26 @@ Cache sized at 10% of unique keys. **Bold** = best in row.
 | msr_proj_4 | 0.8463 | 0.8463 | 0.8463 | 0.8140 | **0.7173** |
 | msr_prxy_0 | 0.0512 | 0.0572 | 0.0594 | 0.0476 | **0.0468** |
 | msr_src1_0 | 0.7845 | 0.7845 | 0.7845 | 0.9132 | **0.7811** |
-| msr_src1_1 | **0.7939** | 0.7934 | 0.7934 | 0.8129 | 0.8231 |
+| msr_src1_1 | 0.7939 | 0.7934 | **0.7934** | 0.8129 | 0.8231 |
 | msr_usr_1 | 0.3558 | 0.3558 | 0.3558 | 0.4007 | **0.3513** |
 | msr_usr_2 | 0.7216 | 0.7216 | 0.7216 | 0.7533 | **0.7199** |
 | msr_web_2 | 0.9786 | 0.9786 | 0.9786 | 0.9929 | **0.9785** |
 
-**Summary**: SIEVE k=1 beats LRU on 13 of 18 traces (largest gap msr_src1_0,
-12.9 points). SIEVE is competitive with ARC — ARC wins on scan-heavy MSR
-block traces where its scan-resistance pays off, but Sieve wins or ties on
-msr_prn_1, msr_src1_1, and every Meta Storage block trace. SIEVE k=3
-produces the overall-best miss ratio in the whole comparison on msr_prn_1
-(0.3796 vs LRU 0.4341, ARC 0.4148).
+**Overall best (bold):** ARC has the lowest miss ratio in 11 of 18 rows,
+LRU in 5 (all meta_storage), SIEVE k=3 in 2 (msr_prn_1 and
+msr_src1_1). SIEVE k=1 is never the overall best.
+
+**Head-to-head, SIEVE k=1 vs LRU** (the typical deployment choice):
+SIEVE k=1 has lower miss ratio on 10 of 18 traces, LRU on 8. When
+SIEVE is better the margins are large (msr_src1_0: 12.9 points,
+msr_usr_1: 4.5, msr_prn_1: 4.3). When LRU is better the margins are
+narrow (all 5 meta_storage: 2–3 points each).
+
+**SIEVE's case rests on throughput** Miss ratios are
+competitive (SIEVE is never dramatically worse than LRU), and SIEVE is
+18–300x faster under any concurrency. SIEVE k=3 produces the
+single-best entry in the entire table on msr_prn_1 (0.3796 vs LRU
+0.4341, ARC 0.4148).
 
 ### Memory during replay
 
@@ -246,27 +265,11 @@ On the 13.2M-request `meta_storage/block_traces_1` trace (601K-entry cache),
 
 SIEVE allocates **2.7x less** than LRU and **6.5x less** than ARC during
 replay — the array-backed node pool and inline-int32 `xsync.MapOf` are
-structural, not workload-dependent, wins.
+structural wins.
 
 Full per-trace tables (sequential replay ns/op, B/op, miss ratio for every
 trace) are in [`bench-results.md`](bench-results.md). Methodology and
 trace-loading details are in [`bench/README.md`](bench/README.md).
-
-## SIEVE-k
-
-`WithVisitClamp(k)` creates a SIEVE-k cache where each entry uses a
-saturating counter instead of a single visited bit. An item accessed k+1
-times survives k eviction passes before being evicted. `k=1` is equivalent
-to classic SIEVE (the default). Use `k=2` or `k=3` for workloads with
-repeated access patterns where extra eviction resistance is beneficial.
-
-```go
-// Classic SIEVE (k=1, the default)
-c, err := sieve.New[string, int](1000)
-
-// SIEVE-k=3: items survive up to 3 eviction passes
-c, err := sieve.New[string, int](1000, sieve.WithVisitClamp(3))
-```
 
 ## Usage
 
@@ -294,6 +297,22 @@ val, _, r := c.Probe("foo", 99)
 
 c.Delete("foo")
 c.Purge() // reset entire cache
+```
+
+### SIEVE-k
+
+`WithVisitClamp(k)` creates a SIEVE-k cache where each entry uses a
+saturating counter instead of a single visited bit. An item accessed k+1
+times survives k eviction passes before being evicted. `k=1` is equivalent
+to classic SIEVE (the default). Use `k=2` or `k=3` for workloads with
+repeated access patterns where extra eviction resistance is beneficial.
+
+```go
+// Classic SIEVE (k=1, the default)
+c, err := sieve.New[string, int](1000)
+
+// SIEVE-k=3: items survive up to 3 eviction passes
+c, err := sieve.New[string, int](1000, sieve.WithVisitClamp(3))
 ```
 
 `New` returns an error for `capacity <= 0` (`ErrInvalidCapacity`) and for

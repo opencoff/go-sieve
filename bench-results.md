@@ -227,7 +227,7 @@ Raw output: [`bench/results/trace.txt`](bench/results/trace.txt).
 | Trace | SIEVE k=1 | SIEVE k=2 | SIEVE k=3 | LRU | ARC |
 |-------|----------:|----------:|----------:|----:|----:|
 | meta_storage/block_traces_1 | 0.4632 | 0.4651 | 0.4672 | **0.4602** | 0.4667 |
-| meta_storage/block_traces_2 | **0.4719** | 0.4743 | 0.4754 | 0.4676 | 0.4755 |
+| meta_storage/block_traces_2 | 0.4719 | 0.4743 | 0.4754 | **0.4676** | 0.4755 |
 | meta_storage/block_traces_3 | 0.4908 | 0.4928 | 0.4948 | **0.4885** | 0.4947 |
 | meta_storage/block_traces_4 | 0.4841 | 0.4870 | 0.4888 | **0.4812** | 0.4887 |
 | meta_storage/block_traces_5 | 0.4959 | 0.4984 | 0.4998 | **0.4927** | 0.5003 |
@@ -240,24 +240,32 @@ Raw output: [`bench/results/trace.txt`](bench/results/trace.txt).
 | msr_proj_4 | 0.8463 | 0.8463 | 0.8463 | 0.8140 | **0.7173** |
 | msr_prxy_0 | 0.0512 | 0.0572 | 0.0594 | 0.0476 | **0.0468** |
 | msr_src1_0 | 0.7845 | 0.7845 | 0.7845 | 0.9132 | **0.7811** |
-| msr_src1_1 | **0.7939** | 0.7934 | 0.7934 | 0.8129 | 0.8231 |
+| msr_src1_1 | 0.7939 | 0.7934 | **0.7934** | 0.8129 | 0.8231 |
 | msr_usr_1 | 0.3558 | 0.3558 | 0.3558 | 0.4007 | **0.3513** |
 | msr_usr_2 | 0.7216 | 0.7216 | 0.7216 | 0.7533 | **0.7199** |
 | msr_web_2 | 0.9786 | 0.9786 | 0.9786 | 0.9929 | **0.9785** |
 
-**Wins vs LRU**: SIEVE k=1 ties or beats LRU on 12 of 18 traces, often by
-multiple percentage points (msr_src1_0: 0.7845 vs 0.9132 — a 12.9-point
-improvement; msr_prn_1: 0.3908 vs 0.4341 — 4.3 points).
+**Overall best (bold):** ARC has the lowest miss ratio in 11 of 18 rows,
+LRU in 5 (all meta_storage), SIEVE k=3 in 2 (msr_prn_1 and
+msr_src1_1). SIEVE k=1 is never the overall best.
 
-**Wins vs ARC**: SIEVE k=1 is competitive with ARC on most traces and beats
-it outright on msr_prn_1 (both k=1 and k=3), msr_src1_1, and every Meta
-Storage block trace (narrow margin). ARC wins on the "block I/O" MSR traces
-where its scan-resistance pays off.
+**Head-to-head, SIEVE k=1 vs LRU** (the typical deployment choice):
+SIEVE k=1 has lower miss ratio on 10 of 18 traces, LRU on 8. When
+SIEVE is better the margins are large (msr_src1_0: 0.7845 vs 0.9132 —
+12.9 points; msr_usr_1: 4.5 pts; msr_prn_1: 4.3 pts). When LRU is
+better the margins are narrow (all 5 meta_storage: 2–3 points each;
+msr_proj_0, msr_proj_4, msr_prxy_0).
 
-**SIEVE-k**: k=3 helps on msr_prn_1 (0.3796, best in the whole table —
-beating both LRU and ARC) and is marginally better on msr_src1_1. Elsewhere
-k>1 is neutral or slightly worse. The MSR/Meta block traces don't have the
-repeated-access patterns that reward extra eviction resistance.
+**SIEVE's case rests on throughput, not miss ratio.** Miss ratios are
+competitive (SIEVE is never dramatically worse than LRU), and SIEVE is
+18–300x faster under any concurrency. See the Parallel Get and Parallel
+Replay sections below.
+
+**SIEVE-k**: k=3 helps on msr_prn_1 (0.3796, the single-best entry in
+the whole table — beating both LRU 0.4341 and ARC 0.4148) and is
+marginally better on msr_src1_1. Elsewhere k>1 is neutral or slightly
+worse. The MSR/Meta block traces don't have the repeated-access
+patterns that reward extra eviction resistance.
 
 ### Sequential Replay (BenchmarkReplay)
 
