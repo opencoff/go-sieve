@@ -21,13 +21,14 @@
 //
 // This implementation is optimized for low GC overhead and high concurrency:
 // an array-backed doubly-linked list with int32 indices (no interior pointers),
-// a combined per-node lock+visited word (one uint64 per node), and xsync.MapOf
+// a combined per-node lock+visited word (one uint64 per node), and xsync.Map
 // for lock-free reads.
 package sieve
 
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"math"
 	"strings"
 	"sync"
@@ -38,7 +39,7 @@ import (
 
 // MaxCapacity is the largest value accepted by New for the cache capacity.
 // Node indices are stored as int32 (to keep the node struct compact and to
-// let xsync.MapOf pack values inline); the bump allocator advances to
+// let xsync.Map pack values inline); the bump allocator advances to
 // capacity+1 after the last fill, so the upper bound is math.MaxInt32 - 1.
 const MaxCapacity = math.MaxInt32 - 1
 
@@ -175,7 +176,7 @@ func (r CacheResult) Evicted() bool { return r&CacheEvict != 0 }
 // eviction of other entries - as determined by the SIEVE algorithm.
 type Sieve[K comparable, V any] struct {
 	mu    sync.Mutex
-	cache *xsync.MapOf[K, int32]
+	cache *xsync.Map[K, int32]
 	slots slotState    // combined per-node lock + visited counter
 	hand  int32        // eviction hand; sentinelIdx means "unset, start from tail"
 	size  atomic.Int32 // lock-free Len(); writes happen under s.mu
@@ -380,6 +381,45 @@ func (s *Sieve[K, V]) Cap() int {
 	return int(s.allocator.capacity())
 }
 
+// All returns a weakly-consistent iterator over the (key, value) pairs
+// currently in the cache. It is safe to call concurrently with Get, Add,
+// Probe, Delete, and other All callers.
+//
+// Semantics:
+//
+//   - Iteration order is unspecified and does NOT follow SIEVE FIFO order.
+//   - Entries inserted during iteration may or may not be observed.
+//   - Entries evicted or deleted during iteration are skipped.
+//   - Iteration does not mark entries visited, so walking the cache
+//     does not protect entries from eviction (unlike Get).
+//   - The iterator yields each surviving entry at most once in the common
+//     case, but the underlying xsync map's relaxed scan may rarely re-yield
+//     an entry that migrated buckets during a concurrent resize. Callers
+//     that must see each key exactly once should deduplicate.
+//
+// It is safe to call Get, Add, Probe, or Delete on the cache from inside
+// the iterator body. No cache lock is held across the yield.
+func (s *Sieve[K, V]) All() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		nodes := s.allocator.nodes
+		slots := &s.slots
+		for k, idx := range s.cache.AllRelaxed() {
+			slots.Lock(idx)
+			n := &nodes[idx]
+			if n.key != k {
+				// Stale idx: slot was evicted and reused for a different key.
+				slots.Unlock(idx)
+				continue
+			}
+			kk, vv := n.key, n.val
+			slots.Unlock(idx)
+			if !yield(kk, vv) {
+				return
+			}
+		}
+	}
+}
+
 // String returns a string description of the sieve cache
 func (s *Sieve[K, V]) String() string {
 	s.mu.Lock()
@@ -403,7 +443,7 @@ func (s *Sieve[K, V]) Dump() string {
 			h = ">>"
 		}
 		n := &nodes[idx]
-		b.WriteString(fmt.Sprintf("%svisited=%v, key=%v, val=%v\n", h, s.slots.IsVisited(idx), n.key, n.val))
+		fmt.Fprintf(&b, "%svisited=%v, key=%v, val=%v\n", h, s.slots.IsVisited(idx), n.key, n.val)
 	}
 	s.mu.Unlock()
 	return b.String()

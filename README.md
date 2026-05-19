@@ -340,6 +340,26 @@ if r.Evicted() {
 
 `Purge()` and `Delete()` do not report evictions.
 
+### Iteration
+
+`All()` returns a Go 1.23+ `iter.Seq2[K, V]` over the cache contents.
+Iteration is weakly consistent and safe to call concurrently with
+`Get`/`Add`/`Probe`/`Delete` (including from inside the loop body):
+
+```go
+for k, v := range c.All() {
+    fmt.Println(k, v)
+}
+```
+
+- Order is unspecified — it does **not** follow SIEVE FIFO order.
+- Entries inserted during the walk may or may not be observed; entries
+  evicted or deleted during the walk are skipped.
+- Walking the cache does **not** mark entries as visited, so iteration
+  does not protect entries from eviction (unlike `Get`).
+- No cache lock is held across the loop body, so re-entrant
+  `Get`/`Add`/`Delete` calls from inside `range` are safe.
+
 ## API
 
 | Function / Method | Description |
@@ -353,6 +373,7 @@ if r.Evicted() {
 | `Purge()` | Clear the entire cache. |
 | `Len() int` | Current number of entries (lock-free atomic load). |
 | `Cap() int` | Maximum capacity. |
+| `All() iter.Seq2[K, V]` | Weakly-consistent range iterator over current entries; does not mark visited. |
 
 ### Options
 
