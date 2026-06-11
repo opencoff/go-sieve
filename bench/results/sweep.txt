@@ -1,0 +1,266 @@
+# date: 2026-06-10T21:03:18Z
+# host: Darwin 25.5.0 arm64
+# cpu: Apple M4
+# ncpu: 10
+# go: go version go1.26.3 darwin/arm64
+# commit: 63d5146-dirty
+=== GOMAXPROCS=1 ===
+goos: darwin
+goarch: arm64
+pkg: github.com/opencoff/go-sieve/bench
+cpu: Apple M4
+BenchmarkGet_Parallel/Sieve         	78453385	        14.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve         	86083984	        14.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve         	85201554	        15.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU           	34254110	        32.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU           	35238150	        31.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU           	35769109	        31.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC           	33488877	        33.85 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC           	35809136	        33.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC           	35920524	        33.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve       	36927573	        33.15 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve       	37486918	        33.32 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve       	36861639	        33.60 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU         	20383390	        57.04 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU         	22372146	        60.11 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU         	20264508	        59.36 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC         	13159818	        98.26 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC         	13620098	        92.93 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC         	13675018	        95.47 ns/op	      23 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve         	122875910	         9.807 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve         	122713407	         9.933 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve         	122357856	         9.951 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU           	54138084	        21.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU           	54995520	        21.41 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU           	52898586	        21.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC           	42176048	        25.57 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC           	43446973	        24.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC           	42365961	        25.32 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve         	140024569	         8.428 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve         	140656998	         8.469 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve         	140036790	         8.593 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU           	59487782	        18.27 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU           	58045674	        18.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU           	60196640	        18.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC           	48760830	        22.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC           	49951002	        22.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC           	50252834	        22.10 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve         	164617483	         7.316 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve         	162706108	         7.261 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve         	163414147	         7.268 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU           	57368458	        17.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU           	65562225	        17.90 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU           	66844854	        17.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC           	56127223	        21.49 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC           	48390916	        21.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC           	47149963	        21.23 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve/bench	67.423s
+=== GOMAXPROCS=2 ===
+goos: darwin
+goarch: arm64
+pkg: github.com/opencoff/go-sieve/bench
+cpu: Apple M4
+BenchmarkGet_Parallel/Sieve-2  	136392038	         8.921 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-2  	138205538	         8.662 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-2  	133315329	         9.708 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-2    	14903954	        74.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-2    	16214024	        72.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-2    	16823067	        74.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-2    	15497200	        76.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-2    	15595149	        77.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-2    	15223370	        75.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-2         	26732755	        44.18 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-2         	27534196	        44.72 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-2         	26435186	        44.12 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-2           	14169664	        85.55 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-2           	14375467	        85.91 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-2           	14108337	        86.00 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-2           	10089876	       126.3 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-2           	 9900117	       126.1 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-2           	10074794	       126.8 ns/op	      23 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-2         	148333770	         8.241 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-2         	147805442	         8.213 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-2         	143668612	         8.075 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-2           	19302741	        62.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-2           	18846267	        62.80 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-2           	19058005	        63.12 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-2           	17690341	        66.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-2           	17469409	        68.27 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-2           	16944644	        67.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-2         	100000000	        10.69 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-2         	100000000	        10.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-2         	100000000	        10.55 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-2           	20567901	        57.89 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-2           	19941117	        57.89 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-2           	20252551	        57.15 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-2           	17568313	        61.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-2           	18293402	        63.58 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-2           	18473641	        62.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-2         	100000000	        15.87 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-2         	71860408	        15.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-2         	100000000	        15.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-2           	22904805	        50.70 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-2           	23098058	        51.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-2           	23341893	        51.52 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-2           	19545405	        56.36 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-2           	20291192	        55.83 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-2           	20282746	        56.27 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve/bench	63.055s
+=== GOMAXPROCS=4 ===
+goos: darwin
+goarch: arm64
+pkg: github.com/opencoff/go-sieve/bench
+cpu: Apple M4
+BenchmarkGet_Parallel/Sieve-4  	212026620	         5.317 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-4  	210192296	         5.521 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-4  	208370880	         5.665 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-4    	 9693620	       120.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-4    	 9820797	       121.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-4    	 9699610	       124.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-4    	 8772498	       144.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-4    	 8190920	       146.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-4    	 7969078	       150.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-4         	19517391	        60.35 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-4         	20462654	        60.70 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-4         	20171103	        60.58 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-4           	 8227000	       150.7 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-4           	 7967029	       152.6 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-4           	 7959394	       153.5 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-4           	 7285828	       166.0 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-4           	 7748222	       165.5 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-4           	 7383265	       162.4 ns/op	      23 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-4         	124557991	        10.04 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-4         	100000000	        10.22 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-4         	100000000	        10.41 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-4           	 8621977	       137.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-4           	 8907128	       133.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-4           	 9034902	       133.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-4           	 8600359	       140.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-4           	 8730843	       140.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-4           	 8395526	       143.8 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-4         	51024384	        22.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-4         	54308676	        20.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-4         	53517470	        20.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-4           	 9879316	       128.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-4           	 9558049	       130.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-4           	 9382950	       132.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-4           	 8422616	       136.9 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-4           	 8812318	       140.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-4           	 8367498	       139.6 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-4         	25980282	        43.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-4         	28864338	        40.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-4         	28918971	        42.85 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-4           	11016597	       117.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-4           	 9817312	       123.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-4           	 9948103	       123.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-4           	 9480660	       131.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-4           	 9493567	       129.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-4           	 9251156	       132.0 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve/bench	63.342s
+=== GOMAXPROCS=8 ===
+goos: darwin
+goarch: arm64
+pkg: github.com/opencoff/go-sieve/bench
+cpu: Apple M4
+BenchmarkGet_Parallel/Sieve-8  	175431542	         7.960 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-8  	140562034	         8.410 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-8  	149516617	         7.639 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-8    	 6509138	       178.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-8    	 6617257	       173.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-8    	 7087297	       184.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-8    	 6445102	       184.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-8    	 6563184	       181.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-8    	 6419589	       182.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-8         	13747206	        88.36 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-8         	13936161	        87.85 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-8         	13740366	        86.62 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-8           	 5932146	       205.8 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-8           	 5949362	       205.7 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-8           	 5997158	       206.9 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-8           	 4687504	       261.5 ns/op	      24 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-8           	 4689774	       261.9 ns/op	      24 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-8           	 4721377	       266.6 ns/op	      24 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-8         	44267850	        24.90 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-8         	48872869	        23.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-8         	56272862	        23.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-8           	 9197334	       154.3 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-8           	 7526046	       163.9 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-8           	 7573756	       156.7 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-8           	 7055174	       166.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-8           	 7575154	       164.7 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-8           	 7465818	       165.7 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-8         	19096344	        58.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-8         	22554642	        55.69 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-8         	22975832	        55.14 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-8           	11360596	       150.0 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-8           	 7269286	       164.3 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-8           	 8178362	       148.2 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-8           	 7104256	       162.3 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-8           	 7324896	       157.0 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-8           	 7718749	       157.3 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-8         	11841530	        99.83 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-8         	13341868	        92.69 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-8         	13112443	        90.92 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-8           	12076802	       125.5 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-8           	 8935887	       139.4 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-8           	 9053150	       133.2 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-8           	 7301342	       151.8 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-8           	 7462802	       151.2 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-8           	 7478646	       154.2 ns/op	       2 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve/bench	66.147s
+=== GOMAXPROCS=10 ===
+goos: darwin
+goarch: arm64
+pkg: github.com/opencoff/go-sieve/bench
+cpu: Apple M4
+BenchmarkGet_Parallel/Sieve-10   	147666991	         7.474 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-10   	155313853	         7.641 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-10   	154381375	         7.527 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-10     	 5230243	       201.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-10     	 6583094	       182.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-10     	 6595936	       182.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-10     	 6124917	       193.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-10     	 6093511	       193.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-10     	 6237880	       194.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-10 	13727287	        91.16 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-10 	13196886	        92.29 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-10 	13225380	        92.36 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-10   	 5628729	       217.9 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-10   	 5585466	       222.8 ns/op	      11 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-10   	 5469889	       223.4 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-10   	 4369010	       277.4 ns/op	      24 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-10   	 4409808	       278.8 ns/op	      24 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-10   	 4436926	       277.3 ns/op	      24 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-10         	40895670	        27.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-10         	47238204	        26.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-10         	47363043	        26.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-10           	 8238183	       165.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-10           	 6867660	       174.3 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-10           	 6841621	       169.5 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-10           	 6349593	       181.6 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-10           	 6943489	       176.1 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-10           	 6905563	       184.3 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-10         	17674393	        63.96 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-10         	21322608	        61.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-10         	21154615	        60.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-10           	 9519927	       152.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-10           	 7442144	       166.8 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-10           	 7423212	       158.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-10           	 6512404	       171.5 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-10           	 6942674	       173.8 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-10           	 6604071	       182.6 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-10         	11448232	       102.6 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-10         	12414279	        99.52 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-10         	12697981	       100.6 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-10           	10617158	       140.1 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-10           	 7702208	       147.1 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-10           	 8620578	       140.9 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-10           	 7221526	       155.9 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-10           	 6868910	       153.2 ns/op	       3 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-10           	 7461043	       154.8 ns/op	       2 B/op	       0 allocs/op
+PASS
+ok  	github.com/opencoff/go-sieve/bench	65.973s

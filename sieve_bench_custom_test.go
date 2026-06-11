@@ -167,6 +167,10 @@ func BenchmarkSieveGCPressure(b *testing.B) {
 			b.ReportMetric(float64(pauseTotal.Nanoseconds())/float64(operations), "GC-pause-ns/op")
 			b.ReportMetric(float64(memStatsAfter.HeapObjects)/float64(operations), "heap-objs/op")
 			b.ReportMetric(float64(operations)/elapsedTime.Seconds(), "ops/sec")
+
+			// The cache must stay live through the final GC+ReadMemStats
+			// above, or its heap objects vanish from the measurement.
+			runtime.KeepAlive(cache)
 		})
 	}
 }
@@ -204,11 +208,13 @@ func BenchmarkGCPause_Comparison(b *testing.B) {
 				cache.Add(i, i)
 			}
 
-			// Force GC, measure pause
+			// Force GC, snapshot cumulative pause counters so the
+			// reported metric covers only the timed loop (PauseTotalNs
+			// and NumGC are process-cumulative).
 			runtime.GC()
 
-			var stats runtime.MemStats
-			runtime.ReadMemStats(&stats)
+			var before runtime.MemStats
+			runtime.ReadMemStats(&before)
 
 			// Run some operations during the benchmark
 			b.ResetTimer()
@@ -227,9 +233,13 @@ func BenchmarkGCPause_Comparison(b *testing.B) {
 
 			// Force GC and measure
 			runtime.GC()
-			runtime.ReadMemStats(&stats)
-			b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
-			b.ReportMetric(float64(stats.HeapObjects), "heap-objects")
+			var after runtime.MemStats
+			runtime.ReadMemStats(&after)
+			if ngc := after.NumGC - before.NumGC; ngc > 0 {
+				b.ReportMetric(float64(after.PauseTotalNs-before.PauseTotalNs)/float64(ngc), "avg-gc-pause-ns")
+			}
+			b.ReportMetric(float64(after.HeapObjects), "heap-objects")
+			runtime.KeepAlive(cache)
 		})
 	}
 }
@@ -276,8 +286,11 @@ func BenchmarkGCPause_Final(b *testing.B) {
 		cache.Add(i, i)
 	}
 
-	// Trigger a GC to stabilize
+	// Trigger a GC to stabilize, then snapshot the cumulative pause
+	// counters so the reported metric covers only the timed loop.
 	runtime.GC()
+	var before runtime.MemStats
+	runtime.ReadMemStats(&before)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -296,7 +309,9 @@ func BenchmarkGCPause_Final(b *testing.B) {
 	runtime.GC()
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
-	b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
+	if ngc := stats.NumGC - before.NumGC; ngc > 0 {
+		b.ReportMetric(float64(stats.PauseTotalNs-before.PauseTotalNs)/float64(ngc), "avg-gc-pause-ns")
+	}
 	b.ReportMetric(float64(stats.HeapObjects), "heap-objects")
 	b.ReportMetric(float64(stats.HeapAlloc), "heap-bytes")
 

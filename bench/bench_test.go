@@ -253,6 +253,11 @@ func BenchmarkMixed_Parallel(b *testing.B) {
 }
 
 // BenchmarkMemoryFootprint measures heap allocation delta at various cache sizes.
+//
+// The heap-bytes/heap-objects metrics are the point of this benchmark;
+// the ns/op column is construction+fill time and should be ignored.
+// (The timer must keep running — with a stopped timer the framework
+// would scale b.N toward huge iteration counts.)
 func BenchmarkMemoryFootprint(b *testing.B) {
 	for _, size := range []int{100_000, 500_000, 1_000_000} {
 		name := formatSize(size)
@@ -272,6 +277,7 @@ func BenchmarkMemoryFootprint(b *testing.B) {
 				runtime.ReadMemStats(&after)
 				b.ReportMetric(float64(after.HeapAlloc-before.HeapAlloc), "heap-bytes")
 				b.ReportMetric(float64(after.HeapObjects-before.HeapObjects), "heap-objects")
+				runtime.KeepAlive(c)
 			}
 		})
 
@@ -290,6 +296,7 @@ func BenchmarkMemoryFootprint(b *testing.B) {
 				runtime.ReadMemStats(&after)
 				b.ReportMetric(float64(after.HeapAlloc-before.HeapAlloc), "heap-bytes")
 				b.ReportMetric(float64(after.HeapObjects-before.HeapObjects), "heap-objects")
+				runtime.KeepAlive(c)
 			}
 		})
 
@@ -308,6 +315,7 @@ func BenchmarkMemoryFootprint(b *testing.B) {
 				runtime.ReadMemStats(&after)
 				b.ReportMetric(float64(after.HeapAlloc-before.HeapAlloc), "heap-bytes")
 				b.ReportMetric(float64(after.HeapObjects-before.HeapObjects), "heap-objects")
+				runtime.KeepAlive(c)
 			}
 		})
 	}
@@ -324,6 +332,11 @@ func BenchmarkGCImpact(b *testing.B) {
 			c.Add(i, i)
 		}
 
+		// Snapshot before the timed loop: PauseTotalNs/NumGC are
+		// process-cumulative, so reporting them directly would fold in
+		// warmup fill and earlier sub-benchmarks. Report the delta.
+		var s0 runtime.MemStats
+		runtime.ReadMemStats(&s0)
 		b.ResetTimer()
 		for range b.N {
 			r := rand.New(rand.NewSource(rand.Int63()))
@@ -336,11 +349,13 @@ func BenchmarkGCImpact(b *testing.B) {
 					c.Add(k, k)
 				}
 			}
-			// Force GC and measure
-			var stats runtime.MemStats
 			runtime.GC()
-			runtime.ReadMemStats(&stats)
-			b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
+		}
+		b.StopTimer()
+		var s1 runtime.MemStats
+		runtime.ReadMemStats(&s1)
+		if ngc := s1.NumGC - s0.NumGC; ngc > 0 {
+			b.ReportMetric(float64(s1.PauseTotalNs-s0.PauseTotalNs)/float64(ngc), "avg-gc-pause-ns")
 		}
 	})
 
@@ -350,6 +365,8 @@ func BenchmarkGCImpact(b *testing.B) {
 			c.Add(i, i)
 		}
 
+		var s0 runtime.MemStats
+		runtime.ReadMemStats(&s0)
 		b.ResetTimer()
 		for range b.N {
 			r := rand.New(rand.NewSource(rand.Int63()))
@@ -361,10 +378,13 @@ func BenchmarkGCImpact(b *testing.B) {
 					c.Add(k, k)
 				}
 			}
-			var stats runtime.MemStats
 			runtime.GC()
-			runtime.ReadMemStats(&stats)
-			b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
+		}
+		b.StopTimer()
+		var s1 runtime.MemStats
+		runtime.ReadMemStats(&s1)
+		if ngc := s1.NumGC - s0.NumGC; ngc > 0 {
+			b.ReportMetric(float64(s1.PauseTotalNs-s0.PauseTotalNs)/float64(ngc), "avg-gc-pause-ns")
 		}
 	})
 
@@ -374,6 +394,8 @@ func BenchmarkGCImpact(b *testing.B) {
 			c.Add(i, i)
 		}
 
+		var s0 runtime.MemStats
+		runtime.ReadMemStats(&s0)
 		b.ResetTimer()
 		for range b.N {
 			r := rand.New(rand.NewSource(rand.Int63()))
@@ -385,10 +407,13 @@ func BenchmarkGCImpact(b *testing.B) {
 					c.Add(k, k)
 				}
 			}
-			var stats runtime.MemStats
 			runtime.GC()
-			runtime.ReadMemStats(&stats)
-			b.ReportMetric(float64(stats.PauseTotalNs)/float64(stats.NumGC), "avg-gc-pause-ns")
+		}
+		b.StopTimer()
+		var s1 runtime.MemStats
+		runtime.ReadMemStats(&s1)
+		if ngc := s1.NumGC - s0.NumGC; ngc > 0 {
+			b.ReportMetric(float64(s1.PauseTotalNs-s0.PauseTotalNs)/float64(ngc), "avg-gc-pause-ns")
 		}
 	})
 }

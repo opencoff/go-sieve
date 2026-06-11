@@ -174,6 +174,13 @@ func (r CacheResult) Evicted() bool { return r&CacheEvict != 0 }
 // comparable trait. An instance of Sieve has a fixed max capacity;
 // new additions to the cache beyond the capacity will cause cache
 // eviction of other entries - as determined by the SIEVE algorithm.
+//
+// The zero value of K is reserved and must not be used as a key
+// (e.g. "" for string keys, 0 for integer keys). Internally, freed
+// slots have their key zeroed; the lock-free read path relies on a
+// zero key never matching a live lookup. Storing the zero key
+// "works" in single-threaded use but can return a stale (zero-value)
+// hit under concurrent eviction.
 type Sieve[K comparable, V any] struct {
 	mu    sync.Mutex
 	cache *xsync.Map[K, int32]
@@ -234,6 +241,7 @@ func Must[K comparable, V any](s *Sieve[K, V], err error) *Sieve[K, V] {
 // Get fetches the value for a given key in the cache.
 // It returns true if the key is in the cache, false otherwise.
 // The zero value for 'V' is returned when key is not in the cache.
+// The zero value of K must not be used as a key (see Sieve).
 func (s *Sieve[K, V]) Get(key K) (V, bool) {
 	if idx, ok := s.cache.Load(key); ok {
 		slots := &s.slots
@@ -259,6 +267,8 @@ func (s *Sieve[K, V]) Get(key K) (V, bool) {
 //
 // CacheHit and CacheEvict are mutually exclusive: updating an existing
 // key never triggers eviction.
+//
+// The zero value of K must not be used as a key (see Sieve).
 func (s *Sieve[K, V]) Add(key K, val V) (Evicted[K, V], CacheResult) {
 	nodes := s.allocator.nodes
 	slots := &s.slots
@@ -301,6 +311,8 @@ func (s *Sieve[K, V]) Add(key K, val V) (Evicted[K, V], CacheResult) {
 //   - The evicted entry, if any
 //   - A CacheResult bitmask: CacheHit if key was present, CacheEvict if an
 //     entry was evicted. CacheHit and CacheEvict are mutually exclusive.
+//
+// The zero value of K must not be used as a key (see Sieve).
 func (s *Sieve[K, V]) Probe(key K, val V) (V, Evicted[K, V], CacheResult) {
 	nodes := s.allocator.nodes
 	slots := &s.slots
@@ -489,6 +501,13 @@ func (s *Sieve[K, V]) add(key K, val V) (Evicted[K, V], bool) {
 
 // evict removes one item from the cache and returns its key/value.
 // Caller must hold the lock.
+//
+// Termination: each step either evicts (returns) or decrements one
+// visited counter, so a quiescent scan finishes in at most k*size
+// steps. Concurrent lock-free Get()s can re-mark nodes behind the
+// hand, so the scan is not strictly bounded under adversarial read
+// load; in practice readers cannot keep every node perpetually
+// marked and the scan converges.
 func (s *Sieve[K, V]) evict() (Evicted[K, V], bool) {
 	hand := s.hand
 	nodes := s.allocator.nodes
@@ -530,6 +549,15 @@ func (s *Sieve[K, V]) remove(idx int32) Evicted[K, V] {
 
 	nodes := s.allocator.nodes
 	n := &nodes[idx]
+
+	// If the eviction hand points at the node being removed, advance it
+	// to the predecessor before unlinking. Otherwise a Delete() of the
+	// hand node leaves the hand on a freed slot; when that slot is
+	// reused it is inserted at the head, teleporting the hand there and
+	// making the next eviction scan start at the newest entry.
+	if s.hand == idx {
+		s.hand = n.prev
+	}
 
 	// Unlink — no branches needed thanks to sentinel
 	nodes[n.prev].next = n.next

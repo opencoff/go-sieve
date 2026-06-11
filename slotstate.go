@@ -69,6 +69,13 @@ func newSlotState(capacity int, k int) slotState {
 // For k>1: acquires lock via Or, then saturating-increments the counter
 // via CAS (only the CAS can fail spuriously, and only from concurrent
 // Clear on the same word — probability 1/N).
+//
+// Spurious marks: every Or attempt sets the visited bit, including
+// failed lock acquisitions (k=1) and callers whose stale-index key
+// check later fails. An unrelated live node can therefore gain an
+// undeserved visited mark, delaying its eviction by at most one hand
+// pass. Reused slots are wiped by LockAndReset, so marks never leak
+// across reallocation.
 func (ss *slotState) LockAndMark(idx int32) {
 	word := &ss.words[idx]
 

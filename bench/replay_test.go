@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	sieve "github.com/opencoff/go-sieve"
@@ -178,6 +179,20 @@ func BenchmarkReplay(b *testing.B) {
 
 // --- Parallel Get Benchmarks ---
 
+// staggerStart returns an evenly spaced starting offset into a ring of n
+// requests for each successive worker. Without it, every goroutine walks
+// the trace from offset 0 in near-lockstep: each key is requested by all
+// goroutines almost simultaneously, inflating the hit ratio relative to
+// a real replay.
+func staggerStart(worker *atomic.Int64, n int) int {
+	g := runtime.GOMAXPROCS(0)
+	if g < 1 {
+		g = 1
+	}
+	w := int(worker.Add(1)-1) % g
+	return w * (n / g)
+}
+
 func BenchmarkParallelGet(b *testing.B) {
 	entries := discoverTraces(b)
 
@@ -191,11 +206,13 @@ func BenchmarkParallelGet(b *testing.B) {
 		b.Run(e.name+"/SieveK1", func(b *testing.B) {
 			c := sieve.Must(sieve.New[uint64, struct{}](capacity))
 			warmup(c, trace)
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
+				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
-					c.Get(trace.Requests[i%len(trace.Requests)].Key)
+					c.Get(trace.Requests[i%n].Key)
 					i++
 				}
 			})
@@ -204,11 +221,13 @@ func BenchmarkParallelGet(b *testing.B) {
 		b.Run(e.name+"/SieveK3", func(b *testing.B) {
 			c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
 			warmup(c, trace)
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
+				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
-					c.Get(trace.Requests[i%len(trace.Requests)].Key)
+					c.Get(trace.Requests[i%n].Key)
 					i++
 				}
 			})
@@ -217,11 +236,13 @@ func BenchmarkParallelGet(b *testing.B) {
 		b.Run(e.name+"/LRU", func(b *testing.B) {
 			c, _ := lru.New[uint64, struct{}](capacity)
 			warmupLRU(c, trace)
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
+				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
-					c.Get(trace.Requests[i%len(trace.Requests)].Key)
+					c.Get(trace.Requests[i%n].Key)
 					i++
 				}
 			})
@@ -230,11 +251,13 @@ func BenchmarkParallelGet(b *testing.B) {
 		b.Run(e.name+"/ARC", func(b *testing.B) {
 			c, _ := arc.NewARC[uint64, struct{}](capacity)
 			warmupARC(c, trace)
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
+				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
-					c.Get(trace.Requests[i%len(trace.Requests)].Key)
+					c.Get(trace.Requests[i%n].Key)
 					i++
 				}
 			})
@@ -264,10 +287,11 @@ func BenchmarkParallelReplay(b *testing.B) {
 
 		b.Run(e.name+"/SieveK1", func(b *testing.B) {
 			c := sieve.Must(sieve.New[uint64, struct{}](capacity))
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
 				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
 					c.Probe(trace.Requests[i%n].Key, struct{}{})
 					i++
@@ -277,10 +301,11 @@ func BenchmarkParallelReplay(b *testing.B) {
 
 		b.Run(e.name+"/SieveK3", func(b *testing.B) {
 			c := sieve.Must(sieve.New[uint64, struct{}](capacity, sieve.WithVisitClamp(3)))
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
 				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
 					c.Probe(trace.Requests[i%n].Key, struct{}{})
 					i++
@@ -290,10 +315,11 @@ func BenchmarkParallelReplay(b *testing.B) {
 
 		b.Run(e.name+"/LRU", func(b *testing.B) {
 			c, _ := lru.New[uint64, struct{}](capacity)
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
 				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
 					k := trace.Requests[i%n].Key
 					if _, ok := c.Get(k); !ok {
@@ -306,10 +332,11 @@ func BenchmarkParallelReplay(b *testing.B) {
 
 		b.Run(e.name+"/ARC", func(b *testing.B) {
 			c, _ := arc.NewARC[uint64, struct{}](capacity)
+			var worker atomic.Int64
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				i := 0
 				n := len(trace.Requests)
+				i := staggerStart(&worker, n)
 				for pb.Next() {
 					k := trace.Requests[i%n].Key
 					if _, ok := c.Get(k); !ok {

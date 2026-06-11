@@ -87,9 +87,8 @@ func checkInvariants[K comparable, V any](t *testing.T, s *Sieve[K, V], context 
 	}
 
 	// 4. Hand validity: must be sentinelIdx or a valid slot index (1..cap).
-	// After Delete(), hand may point to a freed slot. This is safe because
-	// the LIFO freelist reuses freed slots before eviction triggers
-	// (eviction requires size==cap, meaning all freelist entries consumed).
+	// remove() advances the hand to the predecessor when the hand node
+	// itself is removed, so the hand never dangles on a freed slot.
 	if s.hand != sentinelIdx {
 		if s.hand < 1 || s.hand > cap {
 			t.Fatalf("%s: hand=%d out of valid range [sentinelIdx, 1..%d]", context, s.hand, cap)

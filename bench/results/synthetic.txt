@@ -1,108 +1,114 @@
-goos: linux
-goarch: amd64
+# date: 2026-06-10T20:23:08Z
+# host: Darwin 25.5.0 arm64
+# cpu: Apple M4
+# ncpu: 10
+# go: go version go1.26.3 darwin/arm64
+# commit: 63d5146-dirty
+goos: darwin
+goarch: arm64
 pkg: github.com/opencoff/go-sieve/bench
-cpu: 13th Gen Intel(R) Core(TM) i9-13900
-BenchmarkGet_Parallel/Sieve-32   	507155095	         2.359 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/Sieve-32   	511546687	         2.331 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/Sieve-32   	512741926	         2.359 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/LRU-32     	 2260114	       563.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/LRU-32     	 1976025	       540.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/LRU-32     	 2326455	       605.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/ARC-32     	 2474875	       612.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/ARC-32     	 1991804	       588.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkGet_Parallel/ARC-32     	 1727810	       606.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/Sieve-32   	 2362579	       426.9 ns/op	       8 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/Sieve-32   	 2339103	       447.1 ns/op	       8 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/Sieve-32   	 3193207	       421.3 ns/op	       8 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/LRU-32     	 1956237	       538.0 ns/op	      40 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/LRU-32     	 2279228	       527.0 ns/op	      40 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/LRU-32     	 2761119	       500.4 ns/op	      40 B/op	       0 allocs/op
-BenchmarkAdd_Parallel/ARC-32     	 1256851	       925.3 ns/op	      75 B/op	       1 allocs/op
-BenchmarkAdd_Parallel/ARC-32     	 1000000	      1020 ns/op	      76 B/op	       1 allocs/op
-BenchmarkAdd_Parallel/ARC-32     	 1000000	      1167 ns/op	      76 B/op	       1 allocs/op
-BenchmarkProbe_Parallel/Sieve-32 	 3281221	       439.7 ns/op	       8 B/op	       0 allocs/op
-BenchmarkProbe_Parallel/Sieve-32 	 3727478	       339.1 ns/op	       8 B/op	       0 allocs/op
-BenchmarkProbe_Parallel/Sieve-32 	 5747242	       378.4 ns/op	       8 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/Sieve-32         	 4518585	       230.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/Sieve-32         	 4320072	       258.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/Sieve-32         	 7850524	       158.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/LRU-32           	 9890762	       144.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/LRU-32           	 7655080	       163.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/LRU-32           	 9516721	       172.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/ARC-32           	 4836482	       253.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/ARC-32           	 4519174	       294.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDelete_Parallel/ARC-32           	 6472528	       241.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/Sieve-32          	 3016504	       350.3 ns/op	       2 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/Sieve-32          	 3950312	       333.7 ns/op	       2 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/Sieve-32          	 3489283	       344.1 ns/op	       2 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/LRU-32            	 1845004	       640.7 ns/op	      12 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/LRU-32            	 2145568	       602.7 ns/op	      12 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/LRU-32            	 2258611	       592.4 ns/op	      12 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/ARC-32            	 1692026	       637.9 ns/op	      24 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/ARC-32            	 1505692	       668.5 ns/op	      24 B/op	       0 allocs/op
-BenchmarkMixed_Parallel/ARC-32            	 1645738	       637.7 ns/op	      24 B/op	       0 allocs/op
-BenchmarkMemoryFootprint/100K/Sieve-32    	      43	  25506092 ns/op	         0 heap-bytes	         0 heap-objects	 9570921 B/op	  108830 allocs/op
-BenchmarkMemoryFootprint/100K/Sieve-32    	      40	  26423729 ns/op	         0 heap-bytes	         0 heap-objects	 9571808 B/op	  108844 allocs/op
-BenchmarkMemoryFootprint/100K/Sieve-32    	      51	  25514448 ns/op	         0 heap-bytes	         0 heap-objects	 9571808 B/op	  108844 allocs/op
-BenchmarkMemoryFootprint/100K/LRU-32      	      42	  28262173 ns/op	         0 heap-bytes	         0 heap-objects	12729736 B/op	  100535 allocs/op
-BenchmarkMemoryFootprint/100K/LRU-32      	      32	  31716172 ns/op	         0 heap-bytes	         0 heap-objects	12729736 B/op	  100535 allocs/op
-BenchmarkMemoryFootprint/100K/LRU-32      	      39	  29882303 ns/op	         0 heap-bytes	         0 heap-objects	12729736 B/op	  100535 allocs/op
-BenchmarkMemoryFootprint/100K/ARC-32      	      39	  30475794 ns/op	         0 heap-bytes	         0 heap-objects	12731237 B/op	  100544 allocs/op
-BenchmarkMemoryFootprint/100K/ARC-32      	      38	  32592078 ns/op	         0 heap-bytes	         0 heap-objects	12730232 B/op	  100544 allocs/op
-BenchmarkMemoryFootprint/100K/ARC-32      	      32	  31815517 ns/op	         0 heap-bytes	         0 heap-objects	12730232 B/op	  100544 allocs/op
-BenchmarkMemoryFootprint/500K/Sieve-32    	      10	 101799962 ns/op	         0 heap-bytes	         0 heap-objects	60803646 B/op	  550436 allocs/op
-BenchmarkMemoryFootprint/500K/Sieve-32    	      10	 103784903 ns/op	         0 heap-bytes	         0 heap-objects	60801700 B/op	  550405 allocs/op
-BenchmarkMemoryFootprint/500K/Sieve-32    	      12	 100519999 ns/op	         0 heap-bytes	         0 heap-objects	60805314 B/op	  550462 allocs/op
-BenchmarkMemoryFootprint/500K/LRU-32      	      14	  84433843 ns/op	         0 heap-bytes	         0 heap-objects	77728355 B/op	  504110 allocs/op
-BenchmarkMemoryFootprint/500K/LRU-32      	      13	  84563051 ns/op	         0 heap-bytes	         0 heap-objects	77751486 B/op	  504113 allocs/op
-BenchmarkMemoryFootprint/500K/LRU-32      	      13	  92235836 ns/op	         0 heap-bytes	         0 heap-objects	77751494 B/op	  504113 allocs/op
-BenchmarkMemoryFootprint/500K/ARC-32      	      12	  98131771 ns/op	         0 heap-bytes	         0 heap-objects	77738990 B/op	  504120 allocs/op
-BenchmarkMemoryFootprint/500K/ARC-32      	      13	  98931809 ns/op	         0 heap-bytes	         0 heap-objects	77754822 B/op	  504122 allocs/op
-BenchmarkMemoryFootprint/500K/ARC-32      	      12	  94606901 ns/op	         0 heap-bytes	         0 heap-objects	77742058 B/op	  504121 allocs/op
-BenchmarkMemoryFootprint/1M/Sieve-32      	       5	 225955785 ns/op	         0 heap-bytes	         0 heap-objects	121591608 B/op	 1100946 allocs/op
-BenchmarkMemoryFootprint/1M/Sieve-32      	       5	 229486023 ns/op	         0 heap-bytes	         0 heap-objects	121593080 B/op	 1100969 allocs/op
-BenchmarkMemoryFootprint/1M/Sieve-32      	       5	 222410073 ns/op	         0 heap-bytes	         0 heap-objects	121593758 B/op	 1100979 allocs/op
-BenchmarkMemoryFootprint/1M/LRU-32        	       6	 172322987 ns/op	         0 heap-bytes	         0 heap-objects	155481928 B/op	 1008199 allocs/op
-BenchmarkMemoryFootprint/1M/LRU-32        	       6	 170149924 ns/op	         0 heap-bytes	         0 heap-objects	155531202 B/op	 1008204 allocs/op
-BenchmarkMemoryFootprint/1M/LRU-32        	       7	 173173239 ns/op	         0 heap-bytes	         0 heap-objects	155545233 B/op	 1008205 allocs/op
-BenchmarkMemoryFootprint/1M/ARC-32        	       6	 194791901 ns/op	         0 heap-bytes	         0 heap-objects	155525506 B/op	 1008212 allocs/op
-BenchmarkMemoryFootprint/1M/ARC-32        	       6	 197510770 ns/op	         0 heap-bytes	         0 heap-objects	155470114 B/op	 1008206 allocs/op
-BenchmarkMemoryFootprint/1M/ARC-32        	       6	 203092424 ns/op	         0 heap-bytes	         0 heap-objects	155488597 B/op	 1008208 allocs/op
-BenchmarkGCImpact/Sieve-32                	     127	   9493600 ns/op	     77204 avg-gc-pause-ns	    9834 B/op	     257 allocs/op
-BenchmarkGCImpact/Sieve-32                	     128	   9221538 ns/op	     75479 avg-gc-pause-ns	    9817 B/op	     256 allocs/op
-BenchmarkGCImpact/Sieve-32                	     138	   8364568 ns/op	     73755 avg-gc-pause-ns	    9867 B/op	     258 allocs/op
-BenchmarkGCImpact/LRU-32                  	     100	  13235769 ns/op	     73002 avg-gc-pause-ns	   27064 B/op	     249 allocs/op
-BenchmarkGCImpact/LRU-32                  	     100	  13639279 ns/op	     72323 avg-gc-pause-ns	   26186 B/op	     251 allocs/op
-BenchmarkGCImpact/LRU-32                  	     100	  13930789 ns/op	     71663 avg-gc-pause-ns	   26333 B/op	     249 allocs/op
-BenchmarkGCImpact/ARC-32                  	     100	  14162087 ns/op	     71011 avg-gc-pause-ns	  116081 B/op	     990 allocs/op
-BenchmarkGCImpact/ARC-32                  	     100	  14644460 ns/op	     70464 avg-gc-pause-ns	  117193 B/op	     996 allocs/op
-BenchmarkGCImpact/ARC-32                  	      90	  14260030 ns/op	     69952 avg-gc-pause-ns	  120362 B/op	     995 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/Sieve-32         	72118210	        16.65 ns/op	       0 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/Sieve-32         	70540969	        16.49 ns/op	       0 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/Sieve-32         	72027744	        16.51 ns/op	       0 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/LRU-32           	 3199334	       472.5 ns/op	      21 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/LRU-32           	 2534476	       429.2 ns/op	      26 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/LRU-32           	 2246436	       497.3 ns/op	      29 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/ARC-32           	 5651902	       396.7 ns/op	      11 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/ARC-32           	 2909037	       425.0 ns/op	      23 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.01/ARC-32           	 2639380	       391.2 ns/op	      25 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/Sieve-32         	40012893	        29.92 ns/op	       1 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/Sieve-32         	40042603	        30.16 ns/op	       1 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/Sieve-32         	33324018	        30.13 ns/op	       2 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/LRU-32           	 2901633	       360.0 ns/op	      23 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/LRU-32           	 3846439	       354.4 ns/op	      17 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/LRU-32           	 3361933	       388.3 ns/op	      20 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/ARC-32           	 3283261	       463.1 ns/op	      20 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/ARC-32           	 2596934	       410.5 ns/op	      26 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.20/ARC-32           	 2765756	       409.0 ns/op	      24 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/Sieve-32         	19000545	        62.01 ns/op	       3 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/Sieve-32         	19502924	        65.39 ns/op	       3 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/Sieve-32         	15246279	        66.20 ns/op	       4 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/LRU-32           	 3698420	       291.4 ns/op	      18 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/LRU-32           	 4221852	       336.6 ns/op	      15 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/LRU-32           	 4984202	       323.6 ns/op	      13 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/ARC-32           	 2822978	       385.3 ns/op	      23 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/ARC-32           	 3945181	       328.2 ns/op	      17 B/op	       0 allocs/op
-BenchmarkZipf_Get_Parallel/s=1.50/ARC-32           	 3185186	       378.2 ns/op	      21 B/op	       0 allocs/op
+cpu: Apple M4
+BenchmarkGet_Parallel/Sieve-10   	201102025	         5.714 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-10   	211236783	         5.964 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/Sieve-10   	210108003	         5.756 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-10     	 8821882	       144.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-10     	 8820974	       134.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/LRU-10     	 8618478	       144.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-10     	 8173646	       144.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-10     	 7960198	       142.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkGet_Parallel/ARC-10     	 8285518	       149.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/Sieve-10   	13201077	        89.33 ns/op	       8 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/Sieve-10   	13578640	        95.00 ns/op	       8 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/Sieve-10   	13910563	        89.76 ns/op	       8 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/LRU-10     	 5902918	       211.4 ns/op	      40 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/LRU-10     	 5457852	       218.7 ns/op	      40 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/LRU-10     	 5914875	       212.0 ns/op	      40 B/op	       0 allocs/op
+BenchmarkAdd_Parallel/ARC-10     	 4608806	       276.8 ns/op	      75 B/op	       1 allocs/op
+BenchmarkAdd_Parallel/ARC-10     	 4535821	       273.3 ns/op	      74 B/op	       1 allocs/op
+BenchmarkAdd_Parallel/ARC-10     	 4510850	       268.8 ns/op	      74 B/op	       1 allocs/op
+BenchmarkProbe_Parallel/Sieve-10 	11007625	        91.05 ns/op	       8 B/op	       0 allocs/op
+BenchmarkProbe_Parallel/Sieve-10 	13466646	        92.85 ns/op	       8 B/op	       0 allocs/op
+BenchmarkProbe_Parallel/Sieve-10 	13447618	        91.21 ns/op	       8 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/Sieve-10         	14962857	        81.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/Sieve-10         	14760676	        81.30 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/Sieve-10         	14851362	        74.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/LRU-10           	16960231	        67.04 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/LRU-10           	14700034	        69.54 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/LRU-10           	18041540	        70.39 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/ARC-10           	12495188	        87.54 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/ARC-10           	12154026	        91.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDelete_Parallel/ARC-10           	13361140	        88.33 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-10          	17605009	        71.96 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-10          	17652249	        70.99 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/Sieve-10          	18259593	        68.19 ns/op	       2 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-10            	 6907118	       161.0 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-10            	 7411623	       164.4 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/LRU-10            	 7532156	       162.2 ns/op	      12 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-10            	 5924013	       217.6 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-10            	 5819628	       211.8 ns/op	      23 B/op	       0 allocs/op
+BenchmarkMixed_Parallel/ARC-10            	 5911675	       208.3 ns/op	      24 B/op	       0 allocs/op
+BenchmarkMemoryFootprint/100K/Sieve-10    	     260	   4358950 ns/op	   6967872 heap-bytes	    101027 heap-objects	 6967432 B/op	  101022 allocs/op
+BenchmarkMemoryFootprint/100K/Sieve-10    	     266	   4394832 ns/op	   6967552 heap-bytes	    101022 heap-objects	 6968867 B/op	  101044 allocs/op
+BenchmarkMemoryFootprint/100K/Sieve-10    	     272	   4435482 ns/op	   6959872 heap-bytes	    100902 heap-objects	 6968428 B/op	  101037 allocs/op
+BenchmarkMemoryFootprint/100K/LRU-10      	     139	   8391843 ns/op	  10364800 heap-bytes	    100261 heap-objects	12729742 B/op	  100535 allocs/op
+BenchmarkMemoryFootprint/100K/LRU-10      	     139	   8527615 ns/op	  10364800 heap-bytes	    100261 heap-objects	12729749 B/op	  100535 allocs/op
+BenchmarkMemoryFootprint/100K/LRU-10      	     140	   9035503 ns/op	  10364800 heap-bytes	    100261 heap-objects	12729741 B/op	  100535 allocs/op
+BenchmarkMemoryFootprint/100K/ARC-10      	     126	   9655381 ns/op	  10365296 heap-bytes	    100270 heap-objects	12730242 B/op	  100544 allocs/op
+BenchmarkMemoryFootprint/100K/ARC-10      	     126	   9444827 ns/op	  10365296 heap-bytes	    100270 heap-objects	12730246 B/op	  100544 allocs/op
+BenchmarkMemoryFootprint/100K/ARC-10      	     128	   9583090 ns/op	  10365296 heap-bytes	    100270 heap-objects	12730242 B/op	  100544 allocs/op
+BenchmarkMemoryFootprint/500K/Sieve-10    	      31	  37530641 ns/op	  41083904 heap-bytes	    504650 heap-objects	41083136 B/op	  504640 allocs/op
+BenchmarkMemoryFootprint/500K/Sieve-10    	      32	  38908441 ns/op	  41109632 heap-bytes	    505052 heap-objects	41086106 B/op	  504686 allocs/op
+BenchmarkMemoryFootprint/500K/Sieve-10    	      28	  36739940 ns/op	  41065664 heap-bytes	    504365 heap-objects	41081341 B/op	  504612 allocs/op
+BenchmarkMemoryFootprint/500K/LRU-10      	      20	  56026402 ns/op	  58916864 heap-bytes	    502053 heap-objects	77830199 B/op	  504121 allocs/op
+BenchmarkMemoryFootprint/500K/LRU-10      	      21	  55273385 ns/op	  58916864 heap-bytes	    502053 heap-objects	77823361 B/op	  504121 allocs/op
+BenchmarkMemoryFootprint/500K/LRU-10      	      20	  56088283 ns/op	  58898400 heap-bytes	    502051 heap-objects	77830182 B/op	  504121 allocs/op
+BenchmarkMemoryFootprint/500K/ARC-10      	      19	  61046974 ns/op	  58917360 heap-bytes	    502062 heap-objects	77834430 B/op	  504131 allocs/op
+BenchmarkMemoryFootprint/500K/ARC-10      	      19	  61842987 ns/op	  58917360 heap-bytes	    502062 heap-objects	77830502 B/op	  504130 allocs/op
+BenchmarkMemoryFootprint/500K/ARC-10      	      19	  61891206 ns/op	  58917360 heap-bytes	    502062 heap-objects	77830531 B/op	  504131 allocs/op
+BenchmarkMemoryFootprint/1M/Sieve-10      	      12	  94506635 ns/op	  82217856 heap-bytes	   1010240 heap-objects	82217546 B/op	 1010237 allocs/op
+BenchmarkMemoryFootprint/1M/Sieve-10      	      13	  93293093 ns/op	  82237888 heap-bytes	   1010553 heap-objects	82209593 B/op	 1010113 allocs/op
+BenchmarkMemoryFootprint/1M/Sieve-10      	      12	  97564229 ns/op	  82236288 heap-bytes	   1010528 heap-objects	82231604 B/op	 1010457 allocs/op
+BenchmarkMemoryFootprint/1M/LRU-10        	       8	 139798620 ns/op	 117777568 heap-bytes	   1004095 heap-objects	155625066 B/op	 1008214 allocs/op
+BenchmarkMemoryFootprint/1M/LRU-10        	       8	 130433792 ns/op	 117814608 heap-bytes	   1004100 heap-objects	155601972 B/op	 1008212 allocs/op
+BenchmarkMemoryFootprint/1M/LRU-10        	       8	 131016552 ns/op	 117814496 heap-bytes	   1004099 heap-objects	155606644 B/op	 1008213 allocs/op
+BenchmarkMemoryFootprint/1M/ARC-10        	       8	 140604156 ns/op	 117814992 heap-bytes	   1004108 heap-objects	155620904 B/op	 1008223 allocs/op
+BenchmarkMemoryFootprint/1M/ARC-10        	       8	 142250932 ns/op	 117778288 heap-bytes	   1004106 heap-objects	155611714 B/op	 1008222 allocs/op
+BenchmarkMemoryFootprint/1M/ARC-10        	       8	 145126245 ns/op	 117796528 heap-bytes	   1004106 heap-objects	155611672 B/op	 1008222 allocs/op
+BenchmarkGCImpact/Sieve-10                	     271	   4366938 ns/op	     18140 avg-gc-pause-ns	    9876 B/op	     259 allocs/op
+BenchmarkGCImpact/Sieve-10                	     270	   4330082 ns/op	     17920 avg-gc-pause-ns	    9817 B/op	     257 allocs/op
+BenchmarkGCImpact/Sieve-10                	     270	   4655687 ns/op	     19763 avg-gc-pause-ns	    9854 B/op	     258 allocs/op
+BenchmarkGCImpact/LRU-10                  	     129	   9295871 ns/op	     22423 avg-gc-pause-ns	   25435 B/op	     251 allocs/op
+BenchmarkGCImpact/LRU-10                  	     129	   9720648 ns/op	     22370 avg-gc-pause-ns	   26073 B/op	     252 allocs/op
+BenchmarkGCImpact/LRU-10                  	     127	   9463219 ns/op	     22037 avg-gc-pause-ns	   26184 B/op	     250 allocs/op
+BenchmarkGCImpact/ARC-10                  	     124	  10156650 ns/op	     23846 avg-gc-pause-ns	  137073 B/op	     992 allocs/op
+BenchmarkGCImpact/ARC-10                  	     122	   9934704 ns/op	     23460 avg-gc-pause-ns	  137401 B/op	     992 allocs/op
+BenchmarkGCImpact/ARC-10                  	     123	   9357035 ns/op	     22283 avg-gc-pause-ns	  137816 B/op	     991 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-10         	52145856	        23.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-10         	46708206	        24.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/Sieve-10         	61681857	        24.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-10           	 9426421	       127.7 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-10           	 9748039	       139.1 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/LRU-10           	 8955585	       125.8 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-10           	 8610981	       130.7 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-10           	 8739499	       134.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.01/ARC-10           	 8630896	       133.1 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-10         	19888732	        59.68 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-10         	22395615	        58.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/Sieve-10         	22438364	        58.10 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-10           	10160041	       114.0 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-10           	 9950616	       115.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/LRU-10           	 9762661	       117.1 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-10           	 8474197	       124.3 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-10           	 9584048	       125.0 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.20/ARC-10           	 8792647	       126.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-10         	13188799	        94.19 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-10         	13507764	        92.80 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/Sieve-10         	13674512	        95.77 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-10           	11199980	       100.3 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-10           	10178950	       102.2 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/LRU-10           	11174346	       100.4 ns/op	       1 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-10           	10188212	       112.3 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-10           	10161729	       112.6 ns/op	       2 B/op	       0 allocs/op
+BenchmarkZipf_Get_Parallel/s=1.50/ARC-10           	10390670	       114.8 ns/op	       2 B/op	       0 allocs/op
 PASS
-ok  	github.com/opencoff/go-sieve/bench	188.501s
+ok  	github.com/opencoff/go-sieve/bench	154.976s
