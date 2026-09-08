@@ -19,7 +19,8 @@ throughput improves as cores are added while mutex-bound LRU/ARC
 throughput *degrades below its own single-core line*. Under a cold-cache
 mixed read/write replay, SIEVE is 2–6x faster. The write path uses a
 single short-held mutex and a pre-allocated node pool, so
-`Add()`/`Probe()` also avoid per-operation heap allocation in steady state.
+`Add()`/`Probe()`/`ProbeFunc()` also avoid per-operation heap allocation in
+steady state.
 
 If you need a cache that many goroutines hit simultaneously on the read
 path — an HTTP response cache, a DNS resolver cache, an authz decision
@@ -47,8 +48,8 @@ non-pointer `K`, `V` types).
 **xsync.MapOf for concurrent access.** The key→index map uses
 [puzpuzpuz/xsync.MapOf](https://github.com/puzpuzpuz/xsync) which stores
 `int32` values inline in cache-line-padded buckets — no traced pointers per
-entry. `Get()` is fully lock-free; only `Add()`/`Probe()` (on miss) and
-`Delete()` take the global mutex.
+entry. `Get()` is fully lock-free; only `Add()`/`Probe()`/`ProbeFunc()` (on miss)
+and `Delete()` take the global mutex.
 
 **Columnar slot state (`slotState`).** Each node's lock and visited
 counter are hoisted out of the `node` struct into a separate contiguous
@@ -74,7 +75,10 @@ provides O(1) alloc/free with zero heap allocations during steady-state operatio
 **TOCTOU-safe concurrent writes.** `Add()` and `Probe()` use a double-check
 pattern: fast-path `Load()` outside the lock, re-check under `mu.Lock()` before
 inserting. This prevents duplicate nodes from concurrent writers racing on the
-same key.
+same key. `ProbeFunc()` calls its constructor between the fast-path miss and
+the lock, so the constructor never runs under the mutex; concurrent misses on
+the same key may each construct a value, but only one is stored and the other
+callers receive it with `CacheHit`.
 
 ## Benchmark Results
 
@@ -329,6 +333,10 @@ if val, ok := c.Get("foo"); ok {
 val, _, r := c.Probe("foo", 99)
 // val == 42, r.Hit() == true
 
+// ProbeFunc is Probe with lazy construction: mk runs only on a miss.
+val, _, r = c.ProbeFunc("bar", func(k string) int { return len(k) })
+// val == 3, r.Hit() == false
+
 c.Delete("foo")
 c.Purge() // reset entire cache
 ```
@@ -355,7 +363,7 @@ Clamp values below 1 are silently rounded up to 1.
 
 ### Eviction Handling
 
-`Add()` and `Probe()` return the evicted entry (if any) along with a
+`Add()`, `Probe()` and `ProbeFunc()` return the evicted entry (if any) along with a
 `CacheResult` bitmask. This allows callers to handle evictions
 synchronously without channels, goroutines, or lifecycle management.
 
@@ -378,7 +386,7 @@ if r.Evicted() {
 
 `All()` returns a Go 1.23+ `iter.Seq2[K, V]` over the cache contents.
 Iteration is weakly consistent and safe to call concurrently with
-`Get`/`Add`/`Probe`/`Delete` (including from inside the loop body):
+`Get`/`Add`/`Probe`/`ProbeFunc`/`Delete` (including from inside the loop body):
 
 ```go
 for k, v := range c.All() {
@@ -403,6 +411,7 @@ for k, v := range c.All() {
 | `Get(key) (V, bool)` | Look up a key (lock-free, zero-alloc). |
 | `Add(key, val) (Evicted[K,V], CacheResult)` | Insert or update; returns evicted entry and result bitmask. |
 | `Probe(key, val) (V, Evicted[K,V], CacheResult)` | Insert-if-absent; returns cached/inserted value, evicted entry, and result bitmask. |
+| `ProbeFunc(key, mk func(K) V) (V, Evicted[K,V], CacheResult)` | Like `Probe`, but `mk(key)` is called only on a miss, with no locks held. Concurrent misses may each call `mk`; one result is stored. |
 | `Delete(key) bool` | Remove a key. |
 | `Purge()` | Clear the entire cache. |
 | `Len() int` | Current number of entries (lock-free atomic load). |

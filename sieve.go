@@ -349,6 +349,27 @@ func (s *Sieve[K, V]) Probe(key K, val V) (V, Evicted[K, V], CacheResult) {
 	return val, Evicted[K, V]{}, 0
 }
 
+// ProbeFunc adds <key, mk(key)> if key is not present in the cache.
+// mk is called only on a miss, with no locks held; so it may safely
+// call any method on the cache. Concurrent misses on the same key may
+// each call mk; only one result is stored and the other callers
+// receive the stored value with CacheHit set.
+//
+// Returns:
+//   - The cached value (on hit) or mk(key) (on miss)
+//   - The evicted entry, if any
+//   - A CacheResult bitmask: CacheHit if key was present, CacheEvict if an
+//     entry was evicted. CacheHit and CacheEvict are mutually exclusive.
+//
+// The zero value of K must not be used as a key (see Sieve).
+func (s *Sieve[K, V]) ProbeFunc(key K, mk func(K) V) (V, Evicted[K, V], CacheResult) {
+	if v, ok := s.Get(key); ok {
+		return v, Evicted[K, V]{}, CacheHit
+	}
+
+	return s.Probe(key, mk(key))
+}
+
 // Delete deletes the named key from the cache
 // It returns true if the item was in the cache and false otherwise
 func (s *Sieve[K, V]) Delete(key K) bool {

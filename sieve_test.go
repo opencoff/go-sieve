@@ -256,3 +256,45 @@ func randints(sz int) []uint64 {
 	}
 	return v
 }
+
+func TestProbeFunc(t *testing.T) {
+	assert := newAsserter(t)
+
+	size := 4
+	s := sieve.Must(sieve.New[int, string](size))
+
+	calls := 0
+	mk := func(k int) string {
+		calls++
+		return fmt.Sprintf("val %d", k)
+	}
+
+	// miss: mk called exactly once with the key; result stored
+	v, _, r := s.ProbeFunc(1, mk)
+	assert(!r.Hit(), "probefunc 1: exp miss")
+	assert(calls == 1, "probefunc 1: exp 1 mk call, saw %d", calls)
+	assert(v == "val 1", "probefunc 1: exp 'val 1', saw %q", v)
+
+	g, ok := s.Get(1)
+	assert(ok, "get 1: exp hit after probefunc")
+	assert(g == "val 1", "get 1: exp 'val 1', saw %q", g)
+
+	// hit: mk not called; cached value returned, not a freshly made one
+	v, _, r = s.ProbeFunc(1, func(k int) string { calls++; return "other" })
+	assert(r.Hit(), "probefunc 1 again: exp hit")
+	assert(calls == 1, "probefunc 1 again: mk must not be called, saw %d calls", calls)
+	assert(v == "val 1", "probefunc 1 again: exp cached 'val 1', saw %q", v)
+
+	// fill to capacity, then one more miss must report an eviction
+	for i := 2; i <= size; i++ {
+		_, _, r = s.ProbeFunc(i, mk)
+		assert(!r.Hit(), "probefunc %d: exp miss", i)
+		assert(!r.Evicted(), "probefunc %d: exp no eviction", i)
+	}
+	v, ev, r := s.ProbeFunc(size+1, mk)
+	assert(!r.Hit(), "probefunc %d: exp miss", size+1)
+	assert(r.Evicted(), "probefunc %d: exp eviction", size+1)
+	assert(v == fmt.Sprintf("val %d", size+1), "probefunc %d: exp new val, saw %q", size+1, v)
+	assert(ev.Val == fmt.Sprintf("val %d", ev.Key), "evicted <%d, %q>: mismatched", ev.Key, ev.Val)
+	assert(calls == size+1, "exp %d mk calls, saw %d", size+1, calls)
+}

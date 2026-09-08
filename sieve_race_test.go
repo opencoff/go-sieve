@@ -225,3 +225,65 @@ func BenchmarkAdd_ContentionStorm(b *testing.B) {
 		})
 	}
 }
+
+// TestTOCTOU_NoDuplicateNodes_ProbeFunc is the same test but using
+// ProbeFunc. mk runs outside the lock, so several goroutines may
+// construct a value; exactly one must be stored and every caller must
+// receive that same stored value.
+func TestTOCTOU_NoDuplicateNodes_ProbeFunc(t *testing.T) {
+	const goroutines = 100
+
+	s := sieve.Must(sieve.New[string, int](goroutines))
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	seen := make(map[int]int)
+
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func(val int) {
+			defer wg.Done()
+			v, _, _ := s.ProbeFunc("sameKey", func(string) int { return val })
+			mu.Lock()
+			seen[v]++
+			mu.Unlock()
+		}(i)
+	}
+	wg.Wait()
+
+	if s.Len() != 1 {
+		t.Fatalf("expected Len()==1 after concurrent ProbeFunc of same key, got %d", s.Len())
+	}
+	if len(seen) != 1 {
+		t.Fatalf("expected every caller to see the same value, got %d distinct: %v", len(seen), seen)
+	}
+	stored, _ := s.Get("sameKey")
+	for v := range seen {
+		if v != stored {
+			t.Fatalf("callers saw %d but cache holds %d", v, stored)
+		}
+	}
+}
+
+// BenchmarkProbeFunc_Parallel measures concurrent ProbeFunc (lazy
+// insert-if-absent) throughput. Same setup as BenchmarkProbe_Parallel;
+// the constructor closure captures the key so escape analysis is
+// exercised under realistic use.
+func BenchmarkProbeFunc_Parallel(b *testing.B) {
+	const cacheSize = 8192
+	s := sieve.Must(sieve.New[int, int](cacheSize))
+
+	// Pre-fill half the cache so ProbeFunc sees a mix of hits and misses
+	for i := 0; i < cacheSize/2; i++ {
+		s.Add(i, i)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		r := rand.New(rand.NewSource(rand.Int63()))
+		for pb.Next() {
+			key := r.Intn(cacheSize * 2)
+			s.ProbeFunc(key, func(k int) int { return k + key })
+		}
+	})
+}
